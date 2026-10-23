@@ -23,10 +23,21 @@ server.listen(env.port, async () => {
   }
 });
 
+// Also open safe companion port (5000 or 6000) so browsers/Expo Web never hit ERR_UNSAFE_PORT
+const companionPort = Number(env.port) === 5000 ? 6000 : 5000;
+const companionServer = http.createServer(app);
+initSockets(companionServer);
+companionServer.listen(companionPort, () => {
+  console.log(`SmartStay API companion listening on http://localhost:${companionPort}`);
+}).on('error', (err) => {
+  console.warn(`Companion port ${companionPort} notice: ${err.message}`);
+});
+
 async function shutdown(signal) {
   console.log(`${signal} received, shutting down`);
   stopJobs();
   await closeSockets();
+  companionServer.close(() => {});
   server.close(async () => {
     await db.destroy();
     process.exit(0);

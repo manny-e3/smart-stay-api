@@ -972,6 +972,8 @@ op('post', '/admin/stays/{id}/access-code', {
   errors: [404],
 });
 op('post', '/admin/stays/{id}/keys', { tag: 'Stays', summary: 'Revoke and re-issue digital keys', perm: 'stays:write', params: [pathId()], data: obj({ keys: arr(ref('DigitalKey')) }), errors: [404] });
+op('get', '/admin/stays/{id}/qr', { tag: 'Stays', summary: 'Get current QR access code', perm: 'stays:read', params: [pathId()], data: obj({ accessCode: str(), qrToken: str(), qrUrl: str() }), errors: [404] });
+op('post', '/admin/stays/scan-qr', { tag: 'Stays', summary: 'Scan guest QR code', perm: 'stays:read', body: obj({ qrData: str(), checkInNow: bool(), roomId: int() }, ['qrData']), data: obj({ stay: ref('StayDetail') }), errors: [400, 404] });
 
 op('get', '/admin/guests', { tag: 'Guests', summary: 'Search guests', perm: 'stays:read', params: [q('q', str({ description: 'Name, email, phone or booking reference' })), q('vip', bool()), q('includeAnonymized', bool()), ...pageParams], data: page(ref('Guest')) });
 op('get', '/admin/guests/{id}', { tag: 'Guests', summary: 'Guest profile with stay history', perm: 'stays:read', params: [pathId()], data: { allOf: [ref('Guest'), obj({ stays: arr(ref('Stay')) })] }, errors: [404] });
@@ -997,6 +999,33 @@ op('get', '/admin/pms/events', { tag: 'PMS sync', summary: 'PMS event log', perm
 op('post', '/admin/pms/events/{id}/retry', { tag: 'PMS sync', summary: 'Retry a failed PMS event', perm: 'pms:manage', params: [pathId()], data: obj({ id: int(), status: str(), result: str() }), errors: [404] });
 
 // Guest app
+op('post', '/guest/forgot-password', {
+  tag: 'Guest app',
+  summary: 'Request password reset code',
+  body: obj({ email: str({ format: 'email' }) }, ['email']),
+  data: obj({ message: str() }),
+});
+op('post', '/guest/reset-password', {
+  tag: 'Guest app',
+  summary: 'Reset password with 6-digit verification code',
+  body: obj({ email: str({ format: 'email' }), code: str(), newPassword: str() }, ['email', 'code', 'newPassword']),
+  data: obj({ message: str() }),
+  errors: [400],
+});
+op('post', '/guest/register', {
+  tag: 'Guest app',
+  summary: 'Register permanent guest profile',
+  body: obj({ firstName: str(), lastName: str(), email: str(), phone: opt(str()) }),
+  data: obj({ guest: obj({ id: num(), firstName: str(), lastName: str(), email: str() }) }),
+});
+
+op('get', '/guest/history', {
+  tag: 'Guest app',
+  summary: 'List past and current stays for this guest',
+  auth: 'guest',
+  data: arr(obj({ id: num(), reference: str(), suiteNumber: str(), suiteType: str(), checkInDate: dt(), checkOutDate: dt(), nights: num(), status: str() })),
+});
+
 op('get', '/guest/info', {
   tag: 'Guest app',
   summary: 'Help and welcome content',
@@ -1004,6 +1033,24 @@ op('get', '/guest/info', {
   description: 'Public, for the welcome and help screens: reception phone, FAQs, privacy notice and quick links (edited in hotel settings).',
   data: obj({ hotelName: str(), receptionPhone: nul(str()), faqs: arr(obj({ question: str(), answer: str() })), privacyNotice: nul(str()), quickLinks: arr(ref('QuickLink')) }),
 });
+op('post', '/guest/link-booking', {
+  tag: 'Guest app',
+  summary: 'Link a stay to the current authenticated guest session',
+  auth: 'guest',
+  body: obj({
+    bookingCode: opt(str()),
+    reference: opt(str()),
+    lastName: opt(str()),
+    qrToken: opt(str()),
+  }),
+  data: obj({
+    stayId: num(),
+    reference: str(),
+    roomNumber: str(),
+  }),
+  errors: [403, 404],
+});
+
 op('post', '/guest/login', {
   tag: 'Guest app',
   summary: 'Exchange a booking code or QR for a guest token',

@@ -1,3 +1,4 @@
+import { env } from '../../config/env.js';
 import QRCode from 'qrcode';
 import { db, paginate, json } from '../../config/db.js';
 import { audit } from '../../core/audit.js';
@@ -123,9 +124,19 @@ async function resolveRoom(trx, roomId, { lock = false } = {}) {
 
 async function resolveRoomType(trx, name) {
   if (!name) return null;
-  const type = await trx('room_types').where({ name }).first('id');
-  if (!type) throw badRequest(`Unknown room type "${name}"`);
-  return type.id;
+  const trimmed = String(name).trim();
+  let type = await trx('room_types').where({ name: trimmed }).first('id');
+  if (type) return type.id;
+
+  type = await trx('room_types').whereRaw('LOWER(name) = ?', [trimmed.toLowerCase()]).first('id');
+  if (type) return type.id;
+
+  // Handle common compound strings like "Deluxe Suite" -> matches "Suite" or "Deluxe"
+  const allTypes = await trx('room_types').select('id', 'name');
+  const matched = allTypes.find((t) => trimmed.toLowerCase().includes(t.name.toLowerCase()) || t.name.toLowerCase().includes(trimmed.toLowerCase()));
+  if (matched) return matched.id;
+
+  throw badRequest(`Unknown room type "${name}"`);
 }
 
 /**
@@ -359,7 +370,20 @@ export async function createStay(input, actor) {
       room = await resolveRoom(trx, input.roomId, { lock: true });
       await assertNoOverlap(trx, room.id, arrival, departure);
     }
-    const roomTypeId = (await resolveRoomType(trx, input.roomType)) ?? room?.room_type_id ?? null;
+    let roomTypeId = null;
+    if (input.roomType) {
+      try {
+        roomTypeId = await resolveRoomType(trx, input.roomType);
+      } catch (err) {
+        if (room?.room_type_id) {
+          roomTypeId = room.room_type_id;
+        } else {
+          throw err;
+        }
+      }
+    } else {
+      roomTypeId = room?.room_type_id ?? null;
+    }
     const [stayId] = await trx('stays').insert({
       reference: input.reference || (await uniqueReference(trx)),
       source: actor.type === 'pms' ? 'pms' : 'manual',
@@ -397,7 +421,7 @@ export async function createStay(input, actor) {
   const stay = await getStay(id);
 
   // Send reservation confirmation email with full login credentials
-  await emailGuestReservation(stay, access.accessCode, qrUrl, settings, false);
+  if (!env.isTest) await emailGuestReservation(stay, access.accessCode, qrUrl, settings, false);
 
   return { stay, accessCode: access.accessCode, qrToken: access.qrToken, qrUrl };
 }
@@ -693,7 +717,19 @@ export async function checkOut(id, actor, { note } = {}) {
     roomId = stay.room_id;
     await trx('stays').where({ id }).update({ status: 'checked_out', checked_out_at: now });
     await trx('guest_access_codes').where({ stay_id: id }).whereNull('revoked_at').update({ revoked_at: now });
-    await trx('guest_sessions').where({ stay_id: id }).whereNull('revoked_at').update({ revoked_at: now });
+    // For registered guest accounts with password, keep session alive and point to next stay or null
+    const pwdSessions = await trx('guest_sessions').where({ stay_id: id, method: 'password' }).whereNull('revoked_at');
+    for (const ps of pwdSessions) {
+      const nextStay = await trx('stays')
+        .where({ guest_id: ps.guest_id })
+        .whereIn('status', ['checked_in', 'reserved'])
+        .whereNot('id', id)
+        .orderBy('check_in_at', 'desc')
+        .first();
+      await trx('guest_sessions').where({ id: ps.id }).update({ stay_id: nextStay?.id || null });
+    }
+    // Revoke anonymous/temporary access sessions
+    await trx('guest_sessions').where({ stay_id: id }).whereNot('method', 'password').whereNull('revoked_at').update({ revoked_at: now });
     await trx('guest_devices').where({ stay_id: id }).del();
     await trx('rooms').where({ id: roomId }).update({ dnd: false, dnd_updated_at: now, cleaning_requested: false, cleaning_requested_at: null, cleaning_request_id: null });
     if (settings.close_requests_on_checkout) closed = await closeGuestRequests(trx, id, 'Guest checked out');

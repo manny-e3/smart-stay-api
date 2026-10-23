@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BaseAdapter } from './base.js';
+import { db } from '../config/db.js';
 
 /**
  * In-memory adapter for development, tests and demos before the client's vendor APIs are available.
@@ -88,9 +89,21 @@ export class MockAdapter extends BaseAdapter {
     if (this.config.simulateDown) return { ok: false, error: 'Simulated outage' };
     const key = this.keys.get(externalKeyId);
     const now = new Date();
-    if (!key || key.revoked || key.lock !== device.external_id || now < key.validFrom || now > key.validUntil) {
+    if (key) {
+      if (key.revoked || key.lock !== device.external_id || now < key.validFrom || now > key.validUntil) {
+        return { ok: false, error: 'Key not valid for this door' };
+      }
+      return { ok: true };
+    }
+    // Fallback: check database if server restarted
+    const dbKey = await db('digital_keys as k')
+      .join('devices as d', 'd.id', 'k.device_id')
+      .where({ 'k.external_key_id': externalKeyId, 'd.external_id': device.external_id })
+      .first('k.*');
+    if (!dbKey || dbKey.status !== 'active' || now < new Date(dbKey.valid_from) || now > new Date(dbKey.valid_until)) {
       return { ok: false, error: 'Key not valid for this door' };
     }
+    this.keys.set(externalKeyId, { lock: device.external_id, stayId: dbKey.stay_id, validFrom: new Date(dbKey.valid_from), validUntil: new Date(dbKey.valid_until), revoked: false });
     return { ok: true };
   }
 

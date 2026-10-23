@@ -5,7 +5,7 @@ Node.js + Express 5 + MySQL/MariaDB API for the SmartStay staff dashboard and gu
 SmartStay connects a hotel's staff, guests, door locks, in-room devices and property management system (PMS)
 in one place. Staff see every room live on a board, handle guest requests and maintenance alerts, and run the
 front desk. Guests use their phone as a room key and remote control. Rules and energy reports help cut
-power use in empty rooms.
+power use in empty rooms...
 
 ## Contents
 

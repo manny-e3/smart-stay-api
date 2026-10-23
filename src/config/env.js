@@ -10,8 +10,8 @@ export const env = {
   nodeEnv,
   isTest,
   isProd: nodeEnv === 'production',
-  port: num(process.env.PORT, 5000),
-  corsOrigins: (process.env.CORS_ORIGIN || '*').split(',').map((s) => s.trim()).filter(Boolean),
+  port: num(process.env.PORT, 8000),
+  corsOrigins: ('*').split(',').map((s) => s.trim()).filter(Boolean),
   trustProxy: bool(process.env.TRUST_PROXY),
   // Interactive API docs at /docs. On by default except in production.
   docsEnabled: bool(process.env.DOCS_ENABLED, nodeEnv !== 'production'),

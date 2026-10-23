@@ -1,0 +1,4171 @@
+{
+  "info": {
+    "name": "SmartStay API",
+    "description": "SmartStay staff dashboard API (Release 1 and 2).\n\nHow to use:\n1. Import this collection and the \"SmartStay Local\" environment, then select the environment.\n2. Run \"Auth > Login\" (or a \"Login as ...\" request). The access token is saved automatically and used by every other request.\n3. Access tokens last 15 minutes. Run \"Auth > Refresh token\" to get a new one.\n\nVariables such as {{roomId}}, {{requestId}}, {{alertId}} are filled in by the create requests, or set them yourself in the collection variables.\nLive updates use Socket.IO on the same URL with auth { token: accessToken }. Postman can test this with a new Socket.IO request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "roomId",
+      "value": "1"
+    },
+    {
+      "key": "requestId",
+      "value": "1"
+    },
+    {
+      "key": "alertId",
+      "value": "1"
+    },
+    {
+      "key": "staffId",
+      "value": "1"
+    },
+    {
+      "key": "ruleId",
+      "value": "1"
+    },
+    {
+      "key": "adapterId",
+      "value": "1"
+    },
+    {
+      "key": "adapterSecret",
+      "value": ""
+    },
+    {
+      "key": "stayId",
+      "value": "1"
+    },
+    {
+      "key": "guestId",
+      "value": "1"
+    },
+    {
+      "key": "bookingReference",
+      "value": ""
+    },
+    {
+      "key": "roomNumber",
+      "value": "101"
+    },
+    {
+      "key": "accessCode",
+      "value": ""
+    },
+    {
+      "key": "guestToken",
+      "value": ""
+    },
+    {
+      "key": "pmsConnectionId",
+      "value": "1"
+    },
+    {
+      "key": "pmsSecret",
+      "value": ""
+    },
+    {
+      "key": "pmsEventId",
+      "value": "1"
+    },
+    {
+      "key": "qrToken",
+      "value": ""
+    },
+    {
+      "key": "guestRequestId",
+      "value": "1"
+    },
+    {
+      "key": "lightDeviceId",
+      "value": "1"
+    },
+    {
+      "key": "thermostatDeviceId",
+      "value": "1"
+    },
+    {
+      "key": "curtainDeviceId",
+      "value": "1"
+    },
+    {
+      "key": "tvDeviceId",
+      "value": "1"
+    },
+    {
+      "key": "speakerDeviceId",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "API status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Database check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/db",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "db"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "login"
+              ]
+            },
+            "description": "Add \"otp\": \"123456\" to the body when the account has the one-time code switched on (the API answers 401 OTP_REQUIRED otherwise).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "  console.log('Signed in as ' + res.data.staff.email + ' (' + res.data.staff.role + ')');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as demo role",
+          "item": [
+            {
+              "name": "Login as admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/staff/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "staff",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "if (res.success && res.data && res.data.accessToken) {",
+                      "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                      "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                      "  console.log('Signed in as ' + res.data.staff.email + ' (' + res.data.staff.role + ')');",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login as manager",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/staff/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "staff",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{managerEmail}}\",\n  \"password\": \"{{demoPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "if (res.success && res.data && res.data.accessToken) {",
+                      "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                      "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                      "  console.log('Signed in as ' + res.data.staff.email + ' (' + res.data.staff.role + ')');",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login as service staff",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/staff/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "staff",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{serviceEmail}}\",\n  \"password\": \"{{demoPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "if (res.success && res.data && res.data.accessToken) {",
+                      "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                      "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                      "  console.log('Signed in as ' + res.data.staff.email + ' (' + res.data.staff.role + ')');",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login as maintenance",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/staff/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "staff",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{maintenanceEmail}}\",\n  \"password\": \"{{demoPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "if (res.success && res.data && res.data.accessToken) {",
+                      "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                      "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                      "  console.log('Signed in as ' + res.data.staff.email + ' (' + res.data.staff.role + ')');",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login as front desk",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/staff/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "staff",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{frontDeskEmail}}\",\n  \"password\": \"{{demoPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "if (res.success && res.data && res.data.accessToken) {",
+                      "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                      "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                      "  console.log('Signed in as ' + res.data.staff.email + ' (' + res.data.staff.role + ')');",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "description": "Quick logins for the demo accounts created by \"npm run seed\" in development. Use them to check what each role can see."
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "  console.log('Signed in as ' + res.data.staff.email + ' (' + res.data.staff.role + ')');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "My profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/staff/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change my password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/me/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "me",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"NewPassword123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "One-time code: setup",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/staff/me/otp/setup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "me",
+                "otp",
+                "setup"
+              ]
+            },
+            "description": "Returns a secret and otpauth URL to show as a QR code in an authenticator app."
+          }
+        },
+        {
+          "name": "One-time code: enable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/me/otp/enable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "me",
+                "otp",
+                "enable"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "One-time code: disable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/me/otp/disable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "me",
+                "otp",
+                "disable"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Browser push public key",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/staff/push/public-key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "push",
+                "public-key"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Save browser push subscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/me/push-subscriptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "me",
+                "push-subscriptions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example\",\n  \"keys\": {\n    \"p256dh\": \"BASE64_KEY\",\n    \"auth\": \"BASE64_AUTH\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete browser push subscription",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/me/push-subscriptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "me",
+                "push-subscriptions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/example\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Room board",
+      "item": [
+        {
+          "name": "Room board",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rooms/board",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rooms",
+                "board"
+              ]
+            },
+            "description": "Optional filters: floor=1,2  status=alert,request,dnd,occupied,vacant  roomType=Suite"
+          }
+        },
+        {
+          "name": "Room board (filtered)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rooms/board?floor=1&status=alert,request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rooms",
+                "board"
+              ],
+              "query": [
+                {
+                  "key": "floor",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "alert,request",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Room detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rooms/{{roomId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rooms",
+                "{{roomId}}"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "All roles."
+    },
+    {
+      "name": "Requests",
+      "item": [
+        {
+          "name": "List requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests?status=new,assigned,in_progress&page=1&limit=25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "new,assigned,in_progress",
+                  "disabled": false
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "25",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Other filters: category, priority, roomId, assignedTo (id or \"me\"), unassigned=true, escalated=true, from, to."
+          }
+        },
+        {
+          "name": "My assigned requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests?assignedTo=me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests"
+              ],
+              "query": [
+                {
+                  "key": "assignedTo",
+                  "value": "me",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Escalated requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests?escalated=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests"
+              ],
+              "query": [
+                {
+                  "key": "escalated",
+                  "value": "true",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Request detail and history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests/{{requestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests",
+                "{{requestId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create request for guest",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests"
+              ]
+            },
+            "description": "category: housekeeping, amenities, maintenance, food, laundry, other. priority: normal, high, urgent.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": 1,\n  \"category\": \"housekeeping\",\n  \"description\": \"Extra towels and pillows\",\n  \"priority\": \"normal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) pm.collectionVariables.set('requestId', res.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assign request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests/{{requestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests",
+                "{{requestId}}"
+              ]
+            },
+            "description": "Set assignedTo to null to unassign.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedTo\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Start request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests/{{requestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests",
+                "{{requestId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"note\": \"On my way\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Complete request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests/{{requestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests",
+                "{{requestId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cancel request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests/{{requestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests",
+                "{{requestId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"cancelled\",\n  \"note\": \"Guest no longer needs it\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Change priority",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests/{{requestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests",
+                "{{requestId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priority\": \"urgent\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Add note",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/requests/{{requestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "requests",
+                "{{requestId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Guest called again\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "description": "Service staff, manager, admin."
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "Open alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/alerts?status=open",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "alerts"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "open",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Other filters: type, severity=critical,warning,info, source=device,guest,system, roomId, floor, from, to, page, limit."
+          }
+        },
+        {
+          "name": "Guest-reported issues",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/alerts?source=guest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "alerts"
+              ],
+              "query": [
+                {
+                  "key": "source",
+                  "value": "guest",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resolved alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/alerts?status=resolved",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "alerts"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "resolved",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Alert detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/alerts/{{alertId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "alerts",
+                "{{alertId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resolve alert",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/alerts/{{alertId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "alerts",
+                "{{alertId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"resolved\",\n  \"note\": \"Replaced the lock battery\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "description": "Maintenance, manager, admin."
+    },
+    {
+      "name": "Feedback",
+      "item": [
+        {
+          "name": "Feedback list with averages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/feedback?groupBy=day",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "feedback"
+              ],
+              "query": [
+                {
+                  "key": "groupBy",
+                  "value": "day",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Filters: from, to, minRating, maxRating, roomId, floor, category, hasPhotos=true, groupBy=day|week|month."
+          }
+        },
+        {
+          "name": "Low ratings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/feedback?maxRating=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "feedback"
+              ],
+              "query": [
+                {
+                  "key": "maxRating",
+                  "value": "2",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Feedback with photos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/feedback?hasPhotos=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "feedback"
+              ],
+              "query": [
+                {
+                  "key": "hasPhotos",
+                  "value": "true",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "description": "Manager, admin."
+    },
+    {
+      "name": "Staff accounts",
+      "item": [
+        {
+          "name": "List staff",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff?page=1&limit=25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "25",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Filters: role, active=true|false, q (name or email)."
+          }
+        },
+        {
+          "name": "Staff detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff/{{staffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff",
+                "{{staffId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create staff",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff"
+              ]
+            },
+            "description": "role: service, maintenance, front_desk, manager, admin. Password needs 10+ characters with a letter and a number.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane.doe@smartstay.local\",\n  \"role\": \"service\",\n  \"password\": \"Welcome12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) pm.collectionVariables.set('staffId', res.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit staff",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff/{{staffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff",
+                "{{staffId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane A. Doe\",\n  \"role\": \"maintenance\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deactivate staff",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff/{{staffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff",
+                "{{staffId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reactivate staff",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff/{{staffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff",
+                "{{staffId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff/{{staffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff",
+                "{{staffId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"TempPassword123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Unlock account / reset one-time code",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/staff/{{staffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "staff",
+                "{{staffId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unlock\": true,\n  \"resetOtp\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "description": "Admin only."
+    },
+    {
+      "name": "Hotel settings",
+      "item": [
+        {
+          "name": "Get settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "description": "Send all settings or only the ones you are changing.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hotel_name\": \"SmartStay Hotel\",\n  \"ac_min_temp\": 18,\n  \"ac_max_temp\": 28,\n  \"eco_enabled\": true,\n  \"eco_delay_minutes\": 30,\n  \"eco_setpoint\": 26,\n  \"escalation_minutes\": 15,\n  \"phones_per_room\": 2,\n  \"low_rating_threshold\": 2,\n  \"alert_email_recipients\": [\n    \"ops@smartstay.local\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "description": "Admin only."
+    },
+    {
+      "name": "Rooms and devices",
+      "item": [
+        {
+          "name": "Get mapping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rooms/mapping",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rooms",
+                "mapping"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Replace mapping",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rooms/mapping",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rooms",
+                "mapping"
+              ]
+            },
+            "description": "Careful: replaces the WHOLE mapping. Rooms and devices left out are deactivated. Start from \"Get mapping\" and edit it.\nDevice types: lock, thermostat, light, curtain, sensor, meter, phone, other. Vendors: mock, http.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"floors\": [\n    {\n      \"number\": 1,\n      \"name\": \"Ground floor\"\n    },\n    {\n      \"number\": 2,\n      \"name\": \"First floor\"\n    }\n  ],\n  \"roomTypes\": [\n    \"Standard\",\n    \"Suite\"\n  ],\n  \"adapters\": [\n    {\n      \"name\": \"Demo devices\",\n      \"vendor\": \"mock\"\n    }\n  ],\n  \"rooms\": [\n    {\n      \"number\": \"101\",\n      \"floor\": 1,\n      \"roomType\": \"Standard\",\n      \"devices\": [\n        {\n          \"adapter\": \"Demo devices\",\n          \"externalId\": \"lock-101\",\n          \"type\": \"lock\",\n          \"name\": \"Door lock\"\n        },\n        {\n          \"adapter\": \"Demo devices\",\n          \"externalId\": \"thermostat-101\",\n          \"type\": \"thermostat\",\n          \"name\": \"AC\"\n        }\n      ]\n    },\n    {\n      \"number\": \"201\",\n      \"floor\": 2,\n      \"roomType\": \"Suite\",\n      \"devices\": []\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Adapter health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rooms/mapping/adapters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rooms",
+                "mapping",
+                "adapters"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Run adapter health check",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rooms/mapping/adapters/{{adapterId}}/check",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rooms",
+                "mapping",
+                "adapters",
+                "{{adapterId}}",
+                "check"
+              ]
+            }
+          }
+        },
+        {
+          "name": "New webhook secret",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rooms/mapping/adapters/{{adapterId}}/secret",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rooms",
+                "mapping",
+                "adapters",
+                "{{adapterId}}",
+                "secret"
+              ]
+            },
+            "description": "The secret is shown only once and saved to {{adapterSecret}} for the webhook request."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success) pm.collectionVariables.set('adapterSecret', res.data.webhookSecret);"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Admin only."
+    },
+    {
+      "name": "Audit log",
+      "item": [
+        {
+          "name": "Search audit log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/audit?page=1&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Filters: staffId, actorType=staff|guest|system, action (exact, or prefix ending in \".\" like request.), entityType, entityId, roomId, roomNumber, from, to, q."
+          }
+        },
+        {
+          "name": "Room unlocks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/audit?action=room.unlock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "room.unlock",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sign-in activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/audit?action=auth.",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "auth.",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "description": "Manager, admin."
+    },
+    {
+      "name": "Rules (Release 2)",
+      "item": [
+        {
+          "name": "List rules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rules"
+              ]
+            },
+            "description": "Filters: type=schedule|vacancy, enabled=true|false."
+          }
+        },
+        {
+          "name": "Rule detail with recent runs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rules/{{ruleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rules",
+                "{{ruleId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rule run history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rules/{{ruleId}}/runs?page=1&limit=25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rules",
+                "{{ruleId}}",
+                "runs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "25",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create vacancy rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rules"
+              ]
+            },
+            "description": "trigger: unsold (no guest checked in) or no_presence (presence sensors report nobody).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Eco mode in unsold rooms\",\n  \"type\": \"vacancy\",\n  \"target\": {\n    \"scope\": \"all\"\n  },\n  \"conditions\": {\n    \"trigger\": \"unsold\",\n    \"delayMinutes\": 30\n  },\n  \"actions\": [\n    {\n      \"type\": \"set_climate\",\n      \"mode\": \"eco\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) pm.collectionVariables.set('ruleId', res.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create schedule rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rules"
+              ]
+            },
+            "description": "cron is in UTC. target scope: all, floors, rooms (roomIds), roomTypes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Night setback on floor 2\",\n  \"type\": \"schedule\",\n  \"cron\": \"0 23 * * *\",\n  \"target\": {\n    \"scope\": \"floors\",\n    \"floors\": [\n      2\n    ]\n  },\n  \"conditions\": {\n    \"occupancy\": \"vacant\"\n  },\n  \"actions\": [\n    {\n      \"type\": \"set_climate\",\n      \"mode\": \"eco\"\n    },\n    {\n      \"type\": \"lights\",\n      \"on\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.id) pm.collectionVariables.set('ruleId', res.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit rule",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rules/{{ruleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rules",
+                "{{ruleId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Eco mode after 45 minutes\",\n  \"conditions\": {\n    \"trigger\": \"unsold\",\n    \"delayMinutes\": 45\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Disable rule",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rules/{{ruleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rules",
+                "{{ruleId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isEnabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Enable rule",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rules/{{ruleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rules",
+                "{{ruleId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isEnabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Run rule now",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rules/{{ruleId}}/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rules",
+                "{{ruleId}}",
+                "run"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "Admin only."
+    },
+    {
+      "name": "Energy (Release 2)",
+      "item": [
+        {
+          "name": "Energy by room (last 7 days)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/energy?groupBy=room&interval=day",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "energy"
+              ],
+              "query": [
+                {
+                  "key": "groupBy",
+                  "value": "room",
+                  "disabled": false
+                },
+                {
+                  "key": "interval",
+                  "value": "day",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Energy by floor for a date range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/energy?groupBy=floor&interval=day&from=2026-10-01&to=2026-10-22",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "energy"
+              ],
+              "query": [
+                {
+                  "key": "groupBy",
+                  "value": "floor",
+                  "disabled": false
+                },
+                {
+                  "key": "interval",
+                  "value": "day",
+                  "disabled": false
+                },
+                {
+                  "key": "from",
+                  "value": "2026-10-01",
+                  "disabled": false
+                },
+                {
+                  "key": "to",
+                  "value": "2026-10-22",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hourly energy for one room",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/energy?roomId={{roomId}}&interval=hour",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "energy"
+              ],
+              "query": [
+                {
+                  "key": "roomId",
+                  "value": "{{roomId}}",
+                  "disabled": false
+                },
+                {
+                  "key": "interval",
+                  "value": "hour",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export CSV",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/energy/export?interval=day",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "energy",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "interval",
+                  "value": "day",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Use \"Send and Download\" in Postman to save the file."
+          }
+        }
+      ],
+      "description": "Manager, admin."
+    },
+    {
+      "name": "Front desk and stays",
+      "item": [
+        {
+          "name": "Today's arrivals and departures",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/front-desk/today",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "front-desk",
+                "today"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Room availability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/rooms/availability?from=2026-11-01T13:00:00.000Z&to=2026-11-04T11:00:00.000Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "rooms",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-11-01T13:00:00.000Z",
+                  "disabled": false
+                },
+                {
+                  "key": "to",
+                  "value": "2026-11-04T11:00:00.000Z",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Optional: roomType=Suite"
+          }
+        },
+        {
+          "name": "List stays",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays?status=reserved,checked_in&page=1&limit=25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "reserved,checked_in",
+                  "disabled": false
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "25",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Filters: status, arrivalDate=YYYY-MM-DD, departureDate=YYYY-MM-DD, inHouse=true, roomId, q (name, email, phone, reference or room number)."
+          }
+        },
+        {
+          "name": "In-house guests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays?inHouse=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays"
+              ],
+              "query": [
+                {
+                  "key": "inHouse",
+                  "value": "true",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Stay detail with history and keys",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays/{{stayId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays",
+                "{{stayId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create reservation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays"
+              ]
+            },
+            "description": "roomId is optional for a reservation (assign at check-in). Use \"guest\": { \"id\": 5 } for a returning guest. Blocked when booking_mode is \"pms\".",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guest\": {\n    \"firstName\": \"Ada\",\n    \"lastName\": \"Obi\",\n    \"email\": \"ada@example.com\",\n    \"phone\": \"+2348000000000\",\n    \"language\": \"en\"\n  },\n  \"companions\": [\n    {\n      \"firstName\": \"Tobi\",\n      \"lastName\": \"Obi\"\n    }\n  ],\n  \"roomId\": 1,\n  \"arrival\": \"2026-11-01T13:00:00.000Z\",\n  \"departure\": \"2026-11-04T11:00:00.000Z\",\n  \"adults\": 2,\n  \"children\": 0,\n  \"notes\": \"Late arrival\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "const d = res.data || {};",
+                  "const stay = d.stay || d;",
+                  "if (stay && stay.id) { pm.collectionVariables.set('stayId', stay.id); }",
+                  "if (stay && stay.reference) pm.collectionVariables.set('bookingReference', stay.reference);",
+                  "if (stay && stay.guest && stay.guest.id) pm.collectionVariables.set('guestId', stay.guest.id);",
+                  "if (stay && stay.room && stay.room.number) pm.collectionVariables.set('roomNumber', stay.room.number);",
+                  "if (d.accessCode) { pm.collectionVariables.set('accessCode', d.accessCode); console.log('Guest booking code: ' + d.accessCode); }",
+                  "if (d.qrToken) pm.collectionVariables.set('qrToken', d.qrToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Walk-in (create and check in)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays"
+              ]
+            },
+            "description": "Returns the guest access code once and the digital key status.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guest\": {\n    \"firstName\": \"Walk\",\n    \"lastName\": \"In\",\n    \"email\": \"walkin@example.com\"\n  },\n  \"roomId\": 2,\n  \"departure\": \"2026-11-02T11:00:00.000Z\",\n  \"checkInNow\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "const d = res.data || {};",
+                  "const stay = d.stay || d;",
+                  "if (stay && stay.id) { pm.collectionVariables.set('stayId', stay.id); }",
+                  "if (stay && stay.reference) pm.collectionVariables.set('bookingReference', stay.reference);",
+                  "if (stay && stay.guest && stay.guest.id) pm.collectionVariables.set('guestId', stay.guest.id);",
+                  "if (stay && stay.room && stay.room.number) pm.collectionVariables.set('roomNumber', stay.room.number);",
+                  "if (d.accessCode) { pm.collectionVariables.set('accessCode', d.accessCode); console.log('Guest booking code: ' + d.accessCode); }",
+                  "if (d.qrToken) pm.collectionVariables.set('qrToken', d.qrToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit reservation",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays/{{stayId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays",
+                "{{stayId}}"
+              ]
+            },
+            "description": "Reserved stays can also change arrival, departure and roomId. For checked-in stays use Extend and Move.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adults\": 3,\n  \"notes\": \"Needs a baby cot\",\n  \"addGuests\": [\n    {\n      \"firstName\": \"Kemi\",\n      \"lastName\": \"Obi\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Check in",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays/{{stayId}}/check-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays",
+                "{{stayId}}",
+                "check-in"
+              ]
+            },
+            "description": "roomId is only needed if the reservation has no room yet. Response: stay, accessCode (shown once), keys, warnings.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "const d = res.data || {};",
+                  "const stay = d.stay || d;",
+                  "if (stay && stay.id) { pm.collectionVariables.set('stayId', stay.id); }",
+                  "if (stay && stay.reference) pm.collectionVariables.set('bookingReference', stay.reference);",
+                  "if (stay && stay.guest && stay.guest.id) pm.collectionVariables.set('guestId', stay.guest.id);",
+                  "if (stay && stay.room && stay.room.number) pm.collectionVariables.set('roomNumber', stay.room.number);",
+                  "if (d.accessCode) { pm.collectionVariables.set('accessCode', d.accessCode); console.log('Guest booking code: ' + d.accessCode); }",
+                  "if (d.qrToken) pm.collectionVariables.set('qrToken', d.qrToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Move room",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays/{{stayId}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays",
+                "{{stayId}}",
+                "move"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": 3,\n  \"reason\": \"AC not working\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Extend or shorten stay",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays/{{stayId}}/extend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays",
+                "{{stayId}}",
+                "extend"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"departure\": \"2026-11-06T11:00:00.000Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "New guest access code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays/{{stayId}}/access-code",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays",
+                "{{stayId}}",
+                "access-code"
+              ]
+            },
+            "description": "The old code stops working. signOutDevices also signs out phones already using the app.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"signOutDevices\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "const d = res.data || {};",
+                  "const stay = d.stay || d;",
+                  "if (stay && stay.id) { pm.collectionVariables.set('stayId', stay.id); }",
+                  "if (stay && stay.reference) pm.collectionVariables.set('bookingReference', stay.reference);",
+                  "if (stay && stay.guest && stay.guest.id) pm.collectionVariables.set('guestId', stay.guest.id);",
+                  "if (stay && stay.room && stay.room.number) pm.collectionVariables.set('roomNumber', stay.room.number);",
+                  "if (d.accessCode) { pm.collectionVariables.set('accessCode', d.accessCode); console.log('Guest booking code: ' + d.accessCode); }",
+                  "if (d.qrToken) pm.collectionVariables.set('qrToken', d.qrToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Re-issue digital keys",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays/{{stayId}}/keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays",
+                "{{stayId}}",
+                "keys"
+              ]
+            },
+            "description": "Revokes and issues the room keys again, e.g. after a failure or a lost phone."
+          }
+        },
+        {
+          "name": "Check out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays/{{stayId}}/check-out",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays",
+                "{{stayId}}",
+                "check-out"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Paid in full\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cancel reservation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays/{{stayId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays",
+                "{{stayId}}",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Guest called to cancel\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Mark no-show",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stays/{{stayId}}/no-show",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stays",
+                "{{stayId}}",
+                "no-show"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Did not arrive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "description": "Front desk, manager, admin."
+    },
+    {
+      "name": "Guests",
+      "item": [
+        {
+          "name": "Search guests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/guests?q=obi&page=1&limit=25",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "guests"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "obi",
+                  "disabled": false
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "25",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Filters: q (name, email, phone or booking reference), vip=true, includeAnonymized=true."
+          }
+        },
+        {
+          "name": "Guest profile and stay history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/guests/{{guestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "guests",
+                "{{guestId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create guest profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/guests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "guests"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Musa\",\n  \"lastName\": \"Bello\",\n  \"email\": \"musa@example.com\",\n  \"vip\": true,\n  \"notes\": \"Prefers high floors\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Edit guest",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/guests/{{guestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "guests",
+                "{{guestId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+2348011111111\",\n  \"vip\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Anonymise guest (admin)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/guests/{{guestId}}/anonymise",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "guests",
+                "{{guestId}}",
+                "anonymise"
+              ]
+            },
+            "description": "Removes personal details; allowed only when the guest has no current or future stay."
+          }
+        }
+      ],
+      "description": "Front desk, manager, admin. Anonymise is admin only."
+    },
+    {
+      "name": "PMS sync",
+      "item": [
+        {
+          "name": "List PMS connections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/pms/connections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "pms",
+                "connections"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create PMS connection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/pms/connections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "pms",
+                "connections"
+              ]
+            },
+            "description": "Vendors: http (generic JSON bridge) or mock (development).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hotel PMS\",\n  \"vendor\": \"http\",\n  \"config\": {\n    \"baseUrl\": \"https://pms-bridge.example.com\",\n    \"apiKey\": \"secret\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success) pm.collectionVariables.set('pmsConnectionId', res.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit PMS connection",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/pms/connections/{{pmsConnectionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "pms",
+                "connections",
+                "{{pmsConnectionId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isEnabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "New PMS webhook secret",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/pms/connections/{{pmsConnectionId}}/secret",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "pms",
+                "connections",
+                "{{pmsConnectionId}}",
+                "secret"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success) pm.collectionVariables.set('pmsSecret', res.data.webhookSecret);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sync now (reconcile in-house guests)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/pms/connections/{{pmsConnectionId}}/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "pms",
+                "connections",
+                "{{pmsConnectionId}}",
+                "sync"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PMS events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/pms/events?status=failed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "pms",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "failed",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "status: pending, processed, ignored, failed."
+          }
+        },
+        {
+          "name": "Retry failed PMS event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/pms/events/{{pmsEventId}}/retry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "pms",
+                "events",
+                "{{pmsEventId}}",
+                "retry"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "Admin only."
+    },
+    {
+      "name": "Guest app",
+      "item": [
+        {
+          "name": "Help and welcome info (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guest/info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "info"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Login with booking code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "login"
+              ]
+            },
+            "description": "Run \"Front desk > Check in\" first: it saves the 8-character booking code.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingCode\": \"{{accessCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.token) pm.collectionVariables.set('guestToken', res.data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login with QR token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "login"
+              ]
+            },
+            "description": "The token from the check-in QR / login link.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrToken\": \"{{qrToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.token) pm.collectionVariables.set('guestToken', res.data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login with booking reference",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"{{bookingReference}}\",\n  \"lastName\": \"Obi\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.token) pm.collectionVariables.set('guestToken', res.data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Home: my stay, room status, key, eco",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guest/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register phone for push",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/push-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "push-token"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pushToken\": \"fcm-device-token-from-the-app\",\n  \"platform\": \"android\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Digital key (Bluetooth credential)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guest/key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "key"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cloud unlock",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/key/unlock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "key",
+                "unlock"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Room devices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guest/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "devices"
+              ]
+            },
+            "description": "Saves lightDeviceId, thermostatDeviceId, curtainDeviceId, tvDeviceId, speakerDeviceId."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success) { for (const d of res.data.devices) pm.collectionVariables.set(d.type + \"DeviceId\", d.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Light on",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/devices/{{lightDeviceId}}/command",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "devices",
+                "{{lightDeviceId}}",
+                "command"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"on\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Dim light",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/devices/{{lightDeviceId}}/command",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "devices",
+                "{{lightDeviceId}}",
+                "command"
+              ]
+            },
+            "description": "Only for lights with capabilities.dimmable.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brightness\": 40\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Set AC",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/devices/{{thermostatDeviceId}}/command",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "devices",
+                "{{thermostatDeviceId}}",
+                "command"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"setpoint\": 22.5,\n  \"mode\": \"cool\",\n  \"fan\": \"auto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Open curtains",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/devices/{{curtainDeviceId}}/command",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "devices",
+                "{{curtainDeviceId}}",
+                "command"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"open\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Curtain position",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/devices/{{curtainDeviceId}}/command",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "devices",
+                "{{curtainDeviceId}}",
+                "command"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TV",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/devices/{{tvDeviceId}}/command",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "devices",
+                "{{tvDeviceId}}",
+                "command"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"power\": true,\n  \"input\": \"hdmi1\",\n  \"volume\": 25\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Do not disturb on",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/room-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "room-status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dnd\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Request room cleaning",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/room-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "room-status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cleaningRequested\": true,\n  \"note\": \"After 2pm please\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cancel room cleaning",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/room-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "room-status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cleaningRequested\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "New request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "requests"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"amenities\",\n  \"description\": \"Two bottles of water please\",\n  \"preferredAt\": \"2026-11-01T17:00:00.000Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success) pm.collectionVariables.set('guestRequestId', res.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guest/requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Request detail and timeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guest/requests/{{guestRequestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "requests",
+                "{{guestRequestId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guest/requests/{{guestRequestId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "requests",
+                "{{guestRequestId}}",
+                "cancel"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send feedback (JSON, no photos)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "feedback"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"category\": \"service\",\n  \"comment\": \"Lovely stay\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Send feedback with photos (multipart)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guest/feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "feedback"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "rating",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "comment",
+                  "value": "Shower is leaking",
+                  "type": "text"
+                },
+                {
+                  "key": "markAsIssue",
+                  "value": "true",
+                  "type": "text"
+                },
+                {
+                  "key": "photos",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "description": "Pick up to 3 images (JPEG, PNG, WebP, HEIC; 5 MB each) in the \"photos\" field."
+          }
+        },
+        {
+          "name": "My preferences",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guest/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "preferences"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Save preferences and apply now",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/guest/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "preferences"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"preferences\": {\n    \"temperature\": {\n      \"setpoint\": 21,\n      \"fan\": \"low\"\n    },\n    \"lights\": {\n      \"brightness\": 30\n    },\n    \"music\": {\n      \"volume\": 15,\n      \"autoplay\": false\n    }\n  },\n  \"applyNow\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/guest/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "guest",
+                "logout"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "Endpoints used by the guest mobile and web app. They use {{guestToken}}, saved by the login requests.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{guestToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Device integrations",
+      "item": [
+        {
+          "name": "Send device events (webhook)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Adapter-Secret",
+                "value": "{{adapterSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/integrations/adapters/{{adapterId}}/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integrations",
+                "adapters",
+                "{{adapterId}}",
+                "events"
+              ]
+            },
+            "description": "Used by client device APIs. Run \"Rooms and devices > New webhook secret\" first.\nEvent types: status, online, offline, fault, low_battery, unlock, dnd_on, dnd_off, presence.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"events\": [\n    {\n      \"externalId\": \"lock-101\",\n      \"type\": \"fault\",\n      \"payload\": {\n        \"message\": \"Motor jammed\"\n      }\n    },\n    {\n      \"externalId\": \"thermostat-101\",\n      \"type\": \"status\",\n      \"payload\": {\n        \"online\": true,\n        \"state\": {\n          \"mode\": \"cool\",\n          \"setpoint\": 22\n        }\n      }\n    },\n    {\n      \"externalId\": \"lock-101\",\n      \"type\": \"unlock\",\n      \"payload\": {\n        \"method\": \"mobile_key\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Send PMS events (webhook)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-PMS-Secret",
+                "value": "{{pmsSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/integrations/pms/{{pmsConnectionId}}/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integrations",
+                "pms",
+                "{{pmsConnectionId}}",
+                "events"
+              ]
+            },
+            "description": "Used by the hotel PMS or a bridge service. Run \"PMS sync > New PMS webhook secret\" first.\nTypes: reservation.upsert, reservation.cancelled, reservation.no_show, stay.checked_in, stay.checked_out, stay.room_moved. Each event carries the full reservation; eventId must be unique.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"events\": [\n    {\n      \"eventId\": \"pms-evt-0001\",\n      \"type\": \"reservation.upsert\",\n      \"occurredAt\": \"2026-10-31T09:00:00.000Z\",\n      \"reservation\": {\n        \"externalId\": \"RES-1001\",\n        \"roomCode\": \"101\",\n        \"arrival\": \"2026-11-01T13:00:00.000Z\",\n        \"departure\": \"2026-11-04T11:00:00.000Z\",\n        \"adults\": 2,\n        \"guest\": {\n          \"externalId\": \"GUEST-77\",\n          \"firstName\": \"Kemi\",\n          \"lastName\": \"Ade\",\n          \"email\": \"kemi@example.com\"\n        }\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

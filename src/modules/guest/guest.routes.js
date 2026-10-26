@@ -16,6 +16,7 @@ import { guestKeys, keySummary, remoteUnlock } from '../keys/keys.service.js';
 import { guestCommand, listRoomDevices, roomEcoState } from '../controls/controls.service.js';
 import { createGuestRequest, listGuestRequests, getGuestRequest, cancelByGuest, REQUEST_CATEGORIES } from '../requests/requests.service.js';
 import { submitFeedback } from '../feedback/feedback.service.js';
+import { getCatalog, bookingSchema, createBooking, getMyBookings, handleVoiceCommand } from './guestBookingAndVoice.service.js';
 import { getSettings } from '../settings/settings.service.js';
 import { sendEmail } from '../../core/notifier.js';
 
@@ -252,6 +253,12 @@ router.post(
     });
   },
 );
+
+
+/* ---- Luxury Catalog & Public/Guest Bookings ----------------------------- */
+
+router.get('/rooms/catalog', getCatalog);
+router.post('/bookings', limiter({ limit: 10, minutes: 15 }), validate({ body: bookingSchema }), createBooking);
 
 /* ---- Signed in ----------------------------------------------------------- */
 
@@ -611,6 +618,29 @@ router.put('/preferences', validate({ body: z.object({ preferences: preferencesS
   const saved = await savePreferences(req.guest.guestId, req.valid.body.preferences);
   const applied = req.valid.body.applyNow ? await applyGuestPreferences(req.guest.stayId, { guestId: req.guest.guestId }) : null;
   res.json({ success: true, data: { ...saved, applied } });
+});
+
+
+/* ---- My Bookings (Authenticated Member Stays) ---------------------------- */
+
+router.get('/bookings/my', getMyBookings);
+
+/* ---- Google Assistant & Voice Control Engine ----------------------------- */
+
+router.post(
+  '/assistant/command',
+  limiter({ limit: 60, minutes: 1, byGuest: true }),
+  validate({
+    body: z.object({
+      speechText: z.string().trim().min(1).max(500),
+    }),
+  }),
+  handleVoiceCommand
+);
+
+router.post('/voice-command', (req, res, next) => {
+  req.url = '/assistant/command';
+  router.handle(req, res, next);
 });
 
 export default router;

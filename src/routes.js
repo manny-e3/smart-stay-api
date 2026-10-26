@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env.js';
 import { buildOpenApi } from './docs/openapi.js';
@@ -19,6 +19,11 @@ import { staysRouter, guestsRouter, frontDeskRouter } from './modules/stays/stay
 import guestAppRoutes from './modules/guest/guest.routes.js';
 import mediaRoutes from './modules/media/media.routes.js';
 import { pmsAdminRouter, pmsWebhookRouter } from './modules/pms/pms.routes.js';
+import posRoutes from './modules/pos/pos.routes.js';
+import inventoryRoutes from './modules/inventory/inventory.routes.js';
+import procurementRoutes from './modules/procurement/procurement.routes.js';
+import financeRoutes from './modules/finance/finance.routes.js';
+import aiRoutes from './modules/ai/ai.routes.js';
 
 export function buildRoutes() {
   const root = Router();
@@ -35,6 +40,7 @@ export function buildRoutes() {
   }
 
   root.use('/staff', authRoutes);
+  root.use('/guest/ai', aiRoutes);
   root.use('/guest', guestAppRoutes);
   root.use('/media', mediaRoutes);
   root.use('/integrations/pms', pmsWebhookRouter);
@@ -55,6 +61,11 @@ export function buildRoutes() {
   admin.use('/guests', guestsRouter);
   admin.use('/front-desk', frontDeskRouter);
   admin.use('/pms', pmsAdminRouter);
+  admin.use('/pos', posRoutes);
+  admin.use('/inventory', inventoryRoutes);
+  admin.use('/procurement', procurementRoutes);
+  admin.use('/finance', financeRoutes);
+  admin.use('/ai', aiRoutes);
   root.use('/admin', admin);
 
   return root;

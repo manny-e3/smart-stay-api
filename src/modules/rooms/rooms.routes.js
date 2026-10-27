@@ -103,19 +103,37 @@ const roomBody = z.object({
   number: z.string().trim().min(1).max(20),
   floor: z.coerce.number().int().min(-10).max(300),
   roomType: z.string().trim().min(1).max(80).optional(),
+  basePrice: z.coerce.number().min(0).max(100000).optional(),
   isActive: z.boolean().optional(),
   imageUrl: z.string().trim().optional(),
   images: z.array(z.string().trim()).optional(),
+  devices: z.array(z.object({
+  id: z.coerce.number().optional(),
+  name: z.string().trim().min(1).max(120),
+  type: z.enum(['lock', 'thermostat', 'light', 'curtain', 'sensor', 'meter', 'phone', 'tv', 'speaker', 'other']),
+  externalId: z.string().trim().max(120).optional(),
+  capabilities: z.record(z.string(), z.any()).nullable().optional(),
+  isActive: z.boolean().optional(),
+})).optional(),
 });
 
 const roomUpdateBody = z.object({
   number: z.string().trim().min(1).max(20).optional(),
   floor: z.coerce.number().int().min(-10).max(300).optional(),
   roomType: z.string().trim().min(1).max(80).nullable().optional(),
+  basePrice: z.coerce.number().min(0).max(100000).nullable().optional(),
   isActive: z.boolean().optional(),
   dnd: z.boolean().optional(),
   imageUrl: z.string().trim().nullable().optional(),
   images: z.array(z.string().trim()).nullable().optional(),
+  devices: z.array(z.object({
+  id: z.coerce.number().optional(),
+  name: z.string().trim().min(1).max(120),
+  type: z.enum(['lock', 'thermostat', 'light', 'curtain', 'sensor', 'meter', 'phone', 'tv', 'speaker', 'other']),
+  externalId: z.string().trim().max(120).optional(),
+  capabilities: z.record(z.string(), z.any()).nullable().optional(),
+  isActive: z.boolean().optional(),
+})).optional(),
 });
 
 router.post(
@@ -162,5 +180,67 @@ router.get('/:id', authorize('board:read'), validate({ params: idParam }), async
   const includeContact = can(req.staff.role, 'stays:read');
   res.json({ success: true, data: await getRoomDetail(req.valid.params.id, { includeContact }) });
 });
+
+
+/* ---- Room Hardware Devices Management ----------------------------- */
+
+router.get('/:id/devices', authorize('board:read'), validate({ params: idParam }), async (req, res) => {
+  res.json({
+    success: true,
+    data: await roomsService.getRoomDevicesList(req.valid.params.id),
+  });
+});
+
+const addDeviceBody = z.object({
+  type: z.enum(['lock', 'thermostat', 'light', 'curtain', 'sensor', 'meter', 'phone', 'tv', 'speaker', 'other']),
+  name: z.string().trim().min(1).max(120),
+  adapterId: z.coerce.number().int().optional(),
+  externalId: z.string().trim().max(120).optional(),
+  capabilities: z.record(z.string(), z.any()).nullable().optional(),
+  isActive: z.boolean().optional().default(true),
+});
+
+router.post('/:id/devices', authorize('mapping:manage'), validate({ params: idParam, body: addDeviceBody }), async (req, res) => {
+  res.status(201).json({
+    success: true,
+    data: await roomsService.addDeviceToRoom(req.valid.params.id, req.valid.body, { id: req.staff.id, ip: req.ip }),
+  });
+});
+
+const updateDeviceBody = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  type: z.enum(['lock', 'thermostat', 'light', 'curtain', 'sensor', 'meter', 'phone', 'tv', 'speaker', 'other']).optional(),
+  isActive: z.boolean().optional(),
+  capabilities: z.record(z.string(), z.any()).nullable().optional(),
+});
+
+router.patch(
+  '/:id/devices/:deviceId',
+  authorize('mapping:manage'),
+  validate({
+    params: z.object({ id: z.coerce.number().int(), deviceId: z.coerce.number().int() }),
+    body: updateDeviceBody,
+  }),
+  async (req, res) => {
+    res.json({
+      success: true,
+      data: await roomsService.updateRoomDevice(req.valid.params.id, req.valid.params.deviceId, req.valid.body, { id: req.staff.id, ip: req.ip }),
+    });
+  }
+);
+
+router.delete(
+  '/:id/devices/:deviceId',
+  authorize('mapping:manage'),
+  validate({
+    params: z.object({ id: z.coerce.number().int(), deviceId: z.coerce.number().int() }),
+  }),
+  async (req, res) => {
+    res.json({
+      success: true,
+      data: await roomsService.deleteRoomDevice(req.valid.params.id, req.valid.params.deviceId, { id: req.staff.id, ip: req.ip }),
+    });
+  }
+);
 
 export default router;

@@ -1,7 +1,8 @@
 ﻿import { z } from 'zod';
 import { db } from '../../config/db.js';
-import { badRequest } from '../../core/errors.js';
-import { createStay } from '../stays/stays.service.js';
+import { badRequest, conflict } from '../../core/errors.js';
+import { startSession } from './guest.auth.js';
+import { createStay, findOverlap } from '../stays/stays.service.js';
 import { guestCommand, listRoomDevices } from '../controls/controls.service.js';
 import { setRoomStatus } from './roomStatus.service.js';
 import { createGuestRequest } from '../requests/requests.service.js';
@@ -41,7 +42,7 @@ export const LUXURY_SUITES_CATALOG = [
     id: 2,
     name: 'Presidential Penthouse',
     code: 'presidential_penthouse',
-    roomType: 'Suite',
+    roomType: 'Presidential Penthouse',
     badge: 'Ultimate Luxury',
     tagline: 'Exclusive top-floor sanctuary with private terrace and butler service',
     basePrice: 750,
@@ -120,11 +121,33 @@ export const LUXURY_SUITES_CATALOG = [
 ];
 
 export async function getCatalog(req, res) {
-  const roomsCount = await db('rooms').where({ is_active: true }).count({ count: '*' }).first();
+  const [roomsCount, dbRoomTypes] = await Promise.all([
+    db('rooms').where({ is_active: true }).count({ count: '*' }).first(),
+    db('room_types').select('*'),
+  ]);
+
+  const priceMap = {};
+  for (const rt of dbRoomTypes) {
+    if (rt.base_price != null) {
+      priceMap[rt.name.toLowerCase()] = Number(rt.base_price);
+    }
+  }
+
+  const catalog = LUXURY_SUITES_CATALOG.map((item) => {
+    const matchedPrice =
+      priceMap[item.roomType.toLowerCase()] ??
+      priceMap[item.name.toLowerCase()] ??
+      priceMap[item.code.toLowerCase()];
+    return {
+      ...item,
+      basePrice: matchedPrice !== undefined ? matchedPrice : item.basePrice,
+    };
+  });
+
   res.json({
     success: true,
     data: {
-      catalog: LUXURY_SUITES_CATALOG,
+      catalog,
       availableRoomsCount: Number(roomsCount?.count || 12),
       currency: 'USD',
       taxesPercent: 12,
@@ -150,10 +173,22 @@ export const bookingSchema = z.object({
   specialRequests: z.string().trim().max(500).optional(),
   paymentMethod: z.enum(['credit_card', 'pay_at_hotel', 'member_account']).default('credit_card'),
   cardLast4: z.string().trim().max(4).optional(),
+  instantAccess: z.boolean().optional().default(true),
 });
 
 export async function createBooking(req, res) {
-  const { roomType, arrival: arrStr, departure: depStr, adults, children, guest, specialRequests, paymentMethod, cardLast4 } = req.valid.body;
+  const {
+    roomType,
+    arrival: arrStr,
+    departure: depStr,
+    adults,
+    children,
+    guest,
+    specialRequests,
+    paymentMethod,
+    cardLast4,
+    instantAccess = true,
+  } = req.valid.body;
 
   const arrivalDate = new Date(arrStr);
   const departureDate = new Date(depStr);
@@ -165,6 +200,16 @@ export async function createBooking(req, res) {
   }
 
   const nights = Math.max(1, Math.round((departureDate.getTime() - arrivalDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+  // Sync pricing directly with database room_types
+  const dbRoomTypes = await db('room_types').select('*');
+  const matchedDb = dbRoomTypes.find(
+    (rt) =>
+      rt.name.toLowerCase() === roomType.toLowerCase() ||
+      roomType.toLowerCase().includes(rt.name.toLowerCase()) ||
+      rt.name.toLowerCase().includes(roomType.toLowerCase())
+  );
+
   const matchedSuite =
     LUXURY_SUITES_CATALOG.find(
       (s) =>
@@ -173,7 +218,7 @@ export async function createBooking(req, res) {
         s.code === roomType
     ) || LUXURY_SUITES_CATALOG[0];
 
-  const ratePerNight = matchedSuite.basePrice;
+  const ratePerNight = matchedDb?.base_price != null ? Number(matchedDb.base_price) : matchedSuite.basePrice;
   const subtotal = ratePerNight * nights;
   const taxes = Math.round(subtotal * 0.12);
   const totalAmount = subtotal + taxes;
@@ -182,19 +227,72 @@ export async function createBooking(req, res) {
   const compositeNotes = [
     guest.notes,
     specialRequests ? `Special Requests: ${specialRequests}` : null,
-    `Rate: $${ratePerNight}/night (${nights} nights). Total: $${totalAmount} (Taxes: $${taxes}). Payment: ${paymentMethod} (${cardLast4 ? 'ending in ' + cardLast4 : 'Deposit Authorized'}).`,
+    `Rate: $${ratePerNight}/night (${nights} nights). Total: $${totalAmount} (Taxes: $${taxes}). Payment: ${paymentMethod} (${cardLast4 ? 'ending in ' + cardLast4 : 'Deposit Settled'}).`,
   ]
     .filter(Boolean)
     .join(' | ');
 
+  const isImmediatePayment = paymentMethod === 'credit_card' || paymentMethod === 'member_account';
+  const shouldGrantImmediateAccess = isImmediatePayment && instantAccess;
+
+  let assignedRoom = null;
+  if (shouldGrantImmediateAccess) {
+    // 1. Search for an available active room matching this room type
+    const candidateRooms = await db('rooms as r')
+      .leftJoin('room_types as rt', 'rt.id', 'r.room_type_id')
+      .leftJoin('floors as f', 'f.id', 'r.floor_id')
+      .where('r.is_active', true)
+      .where((w) => {
+        if (matchedDb) {
+          w.where('r.room_type_id', matchedDb.id);
+        } else {
+          w.whereILike('rt.name', `%${matchedSuite.roomType}%`);
+        }
+      })
+      .select('r.id', 'r.number', 'f.number as floor')
+      .orderBy('r.number');
+
+    for (const cr of candidateRooms) {
+      const overlap = await findOverlap(db, cr.id, arrivalDate, departureDate);
+      if (!overlap) {
+        assignedRoom = cr;
+        break;
+      }
+    }
+
+    // 2. Fallback to any available room in the hotel if specific tier has no vacancies
+    if (!assignedRoom) {
+      const anyRooms = await db('rooms as r')
+        .leftJoin('floors as f', 'f.id', 'r.floor_id')
+        .where({ 'r.is_active': true })
+        .orderBy('r.number')
+        .select('r.id', 'r.number', 'f.number as floor');
+
+      for (const cr of anyRooms) {
+        const overlap = await findOverlap(db, cr.id, arrivalDate, departureDate);
+        if (!overlap) {
+          assignedRoom = cr;
+          break;
+        }
+      }
+    }
+
+    if (!assignedRoom) {
+      throw conflict('All suites are currently occupied for the selected dates. Please choose alternative dates.');
+    }
+  }
+
   const result = await createStay(
     {
       guest: {
-        name: guestFullName,
+        firstName: guest.firstName,
+        lastName: guest.lastName,
         email: guest.email,
         phone: guest.phone || null,
       },
       roomType: matchedSuite.roomType,
+      roomId: assignedRoom?.id || null,
+      checkInNow: shouldGrantImmediateAccess,
       arrival: arrivalDate,
       departure: departureDate,
       adults,
@@ -208,14 +306,61 @@ export async function createBooking(req, res) {
     }
   );
 
+  let session = null;
+  const stayRecord = result.stay;
+
+  if (shouldGrantImmediateAccess && stayRecord) {
+    // 1. Settle the billing Folio
+    try {
+      const [folioId] = await db('folios').insert({
+        stay_id: stayRecord.id,
+        guest_id: stayRecord.guest.id,
+        folio_number: `FOL-${stayRecord.reference}-${Date.now().toString().slice(-4)}`,
+        status: 'settled',
+        currency: 'USD',
+        balance: 0.0,
+      });
+
+      await db('folio_charges').insert({
+        folio_id: folioId,
+        charge_type: 'room_rate',
+        description: `${matchedSuite.name} (${nights} night${nights > 1 ? 's' : ''} @ $${ratePerNight}/night)`,
+        amount: subtotal,
+        tax_amount: taxes,
+        reference_id: stayRecord.reference,
+      });
+
+      await db('folio_payments').insert({
+        folio_id: folioId,
+        payment_method: 'credit_card',
+        amount: totalAmount,
+        transaction_reference: `TXN-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+        card_last_four: cardLast4 || '8821',
+        auth_code: `AUTH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+        settled_at: new Date(),
+      });
+    } catch (folioErr) {
+      console.warn('Folio settlement notice:', folioErr.message);
+    }
+
+    // 2. Start authenticated session for the guest app with immediate digital key
+    session = await startSession(stayRecord, stayRecord.guest.id, 'booking_code', {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
   res.status(201).json({
     success: true,
     data: {
-      stayId: result.stay.id,
-      reference: result.stay.reference,
+      stayId: stayRecord.id,
+      reference: stayRecord.reference,
       accessCode: result.accessCode,
       qrToken: result.qrToken,
       qrUrl: result.qrUrl,
+      roomNumber: stayRecord.room?.number || assignedRoom?.number || null,
+      floor: stayRecord.room?.floor || assignedRoom?.floor || null,
+      roomId: stayRecord.room?.id || assignedRoom?.id || null,
       suiteName: matchedSuite.name,
       roomType: matchedSuite.roomType,
       arrival: arrStr,
@@ -227,16 +372,23 @@ export async function createBooking(req, res) {
       totalAmount,
       currency: 'USD',
       paymentMethod,
-      cardLast4: cardLast4 || '4242',
-      status: 'confirmed',
+      cardLast4: cardLast4 || '8821',
+      status: stayRecord.status, // 'checked_in' if paid & instant access granted
+      accessGranted: shouldGrantImmediateAccess,
+      token: session?.token || null,
+      expiresAt: session?.expiresAt || null,
+      digitalKeyCount: result.keys?.length || (shouldGrantImmediateAccess ? 1 : 0),
       guest: {
+        id: stayRecord.guest.id,
         firstName: guest.firstName,
         lastName: guest.lastName,
         email: guest.email,
         phone: guest.phone,
       },
     },
-    message: `Reservation ${result.stay.reference} confirmed! Your booking has been secured.`,
+    message: shouldGrantImmediateAccess
+      ? `Payment successful! Suite ${stayRecord.room?.number || assignedRoom?.number} is ready. Instant mobile access has been activated.`
+      : `Reservation ${stayRecord.reference} confirmed! Your booking has been secured.`,
   });
 }
 

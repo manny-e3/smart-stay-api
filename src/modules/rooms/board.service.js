@@ -23,7 +23,7 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
     .join('floors as f', 'f.id', 'r.floor_id')
     .leftJoin('room_types as t', 't.id', 'r.room_type_id')
     .where('r.is_active', true)
-    .select('r.id', 'r.number', 'r.dnd', 'r.dnd_updated_at', 'r.cleaning_requested', 'r.cleaning_requested_at', 'r.image_url as imageUrl', 'r.images', 'f.id as floor_id', 'f.number as floor_number', 'f.name as floor_name', 't.id as type_id', 't.name as type_name');
+    .select('r.id', 'r.number', 'r.base_price', 't.base_price as type_base_price', 'r.dnd', 'r.dnd_updated_at', 'r.cleaning_requested', 'r.cleaning_requested_at', 'r.image_url as imageUrl', 'r.images', 'f.id as floor_id', 'f.number as floor_number', 'f.name as floor_name', 't.id as type_id', 't.name as type_name');
   if (roomIds) roomsQ.whereIn('r.id', roomIds);
   if (floor?.length) roomsQ.whereIn('f.number', floor);
   if (roomType?.length) roomsQ.whereIn('t.name', roomType);
@@ -86,8 +86,11 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
     const openAlerts = Number(al?.open ?? 0);
     const occupied = Boolean(stay);
     const dnd = occupied && Boolean(r.dnd);
+    const resolvedPrice = r.base_price != null ? Number(r.base_price) : (r.type_base_price != null ? Number(r.type_base_price) : 0);
     const status = openAlerts ? 'alert' : openRequests ? 'request' : dnd ? 'dnd' : occupied ? 'occupied' : 'vacant';
     return {
+      basePrice: resolvedPrice,
+      price: resolvedPrice,
       id: r.id,
       number: r.number,
       floor: { id: r.floor_id, number: r.floor_number, name: r.floor_name },

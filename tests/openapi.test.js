@@ -2,23 +2,25 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { api, resetDb, tokenFor } from './helpers.js';
 import { db } from '../src/config/db.js';
 import { buildOpenApi } from '../src/docs/openapi.js';
-import authRoutes from '../src/modules/auth/auth.routes.js';
-import staffRoutes from '../src/modules/staff/staff.routes.js';
-import roomsRoutes from '../src/modules/rooms/rooms.routes.js';
-import requestsRoutes from '../src/modules/requests/requests.routes.js';
-import alertsRoutes from '../src/modules/alerts/alerts.routes.js';
-import feedbackRoutes from '../src/modules/feedback/feedback.routes.js';
-import settingsRoutes from '../src/modules/settings/settings.routes.js';
-import auditRoutes from '../src/modules/audit/audit.routes.js';
-import rulesRoutes from '../src/modules/rules/rules.routes.js';
-import energyRoutes from '../src/modules/energy/energy.routes.js';
-import integrationsRoutes from '../src/modules/integrations/integrations.routes.js';
-import guestRoutes from '../src/modules/guest/guest.routes.js';
-import { staysRouter, guestsRouter, frontDeskRouter } from '../src/modules/stays/stays.routes.js';
-import { pmsAdminRouter, pmsWebhookRouter } from '../src/modules/pms/pms.routes.js';
-import mediaRoutes from '../src/modules/media/media.routes.js';
+import authRoutes from '../src/routes/auth.routes.js';
+import staffRoutes from '../src/routes/staff.routes.js';
+import roomsRoutes from '../src/routes/rooms.routes.js';
+import requestsRoutes from '../src/routes/requests.routes.js';
+import alertsRoutes from '../src/routes/alerts.routes.js';
+import feedbackRoutes from '../src/routes/feedback.routes.js';
+import settingsRoutes from '../src/routes/settings.routes.js';
+import auditRoutes from '../src/routes/audit.routes.js';
+import rulesRoutes from '../src/routes/rules.routes.js';
+import energyRoutes from '../src/routes/energy.routes.js';
+import integrationsRoutes from '../src/routes/integrations.routes.js';
+import guestRoutes from '../src/routes/guestApp.routes.js';
+import staysRoutes from '../src/routes/stays.routes.js';
+import guestsRoutes from '../src/routes/guests.routes.js';
+import frontDeskRoutes from '../src/routes/frontDesk.routes.js';
+import { pmsAdminRouter, pmsWebhookRouter } from '../src/routes/pms.routes.js';
+import mediaRoutes from '../src/routes/media.routes.js';
 
-/** Same mount points as src/routes.js. */
+/** Same mount points as src/routes/index.js. */
 const MOUNTS = {
   '/staff': authRoutes,
   '/guest': guestRoutes,
@@ -33,9 +35,9 @@ const MOUNTS = {
   '/admin/audit': auditRoutes,
   '/admin/rules': rulesRoutes,
   '/admin/energy': energyRoutes,
-  '/admin/stays': staysRouter,
-  '/admin/guests': guestsRouter,
-  '/admin/front-desk': frontDeskRouter,
+  '/admin/stays': staysRoutes,
+  '/admin/guests': guestsRoutes,
+  '/admin/front-desk': frontDeskRoutes,
   '/admin/pms': pmsAdminRouter,
   '/media': mediaRoutes,
 };

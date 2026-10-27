@@ -1,14 +1,13 @@
 import { env } from '../config/env.js';
-import { withDbLock } from '../core/lock.js';
-import { runDevicePoll } from './devicePoll.job.js';
-import { runAdapterHealth } from './adapterHealth.job.js';
-import { escalateOverdue } from '../modules/requests/requests.service.js';
-import { tickRules } from '../modules/rules/rules.service.js';
-import { importEnergyReadings } from '../modules/energy/energy.service.js';
-import { markNoShows } from '../modules/stays/stays.service.js';
-import { runGuestRetention } from '../modules/stays/guests.service.js';
-import { retryFailedRevocations } from '../modules/keys/keys.service.js';
-import { reconcileAll } from '../modules/pms/pms.service.js';
+import { withDbLock } from '../utils/dbLock.js';
+import { pollDevices, runAdapterHealth } from '../services/adapters.service.js';
+import { escalateOverdue } from '../services/requests.service.js';
+import { tickRules } from '../services/rules.service.js';
+import { importEnergyReadings } from '../services/energy.service.js';
+import { markNoShows } from '../services/stays.service.js';
+import { runGuestRetention } from '../services/guests.service.js';
+import { retryFailedRevocations } from '../services/keys.service.js';
+import { reconcileAll } from '../services/pms.service.js';
 
 const timers = [];
 const running = new Set();
@@ -36,7 +35,7 @@ function every(name, seconds, fn) {
 export function startJobs() {
   if (!env.jobs.enabled) return;
   const j = env.jobs;
-  every('device-poll', j.devicePollSeconds, runDevicePoll);
+  every('device-poll', j.devicePollSeconds, pollDevices);
   every('escalation', j.escalationSeconds, () => escalateOverdue());
   every('adapter-health', j.adapterHealthSeconds, runAdapterHealth);
   every('rules', j.rulesTickSeconds, () => tickRules());

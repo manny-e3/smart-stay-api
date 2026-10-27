@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { api, resetDb, tokenFor } from './helpers.js';
 import { db } from '../src/config/db.js';
-import { ROLES, rolesFor } from '../src/core/permissions.js';
+import { ROLES, rolesFor } from '../src/config/permissions.js';
 
 /**
  * Every admin endpoint with the permission it needs. A role that lacks the permission

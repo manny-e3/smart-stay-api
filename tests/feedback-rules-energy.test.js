@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { resetDb, as, seedHotel, checkIn } from './helpers.js';
 import { db } from '../src/config/db.js';
-import { outbox } from '../src/core/notifier.js';
-import { submitFeedback } from '../src/modules/feedback/feedback.service.js';
-import { tickRules } from '../src/modules/rules/rules.service.js';
-import { importEnergyReadings, saveReadings } from '../src/modules/energy/energy.service.js';
+import { outbox } from '../src/services/notification.service.js';
+import { submitFeedback } from '../src/services/feedback.service.js';
+import { tickRules } from '../src/services/rules.service.js';
+import { importEnergyReadings, saveReadings } from '../src/services/energy.service.js';
 
 let hotel;
 beforeEach(async () => {
@@ -32,7 +32,7 @@ describe('feedback', () => {
 
   it('alerts managers about a low rating', async () => {
     await db('settings').where({ key: 'alert_email_recipients' }).update({ value: JSON.stringify(['gm@test.local']) });
-    (await import('../src/modules/settings/settings.service.js')).clearSettingsCache();
+    (await import('../src/services/settings.service.js')).clearSettingsCache();
     await submitFeedback({ roomId: hotel.rooms[0].id, rating: 4 });
     expect(outbox.emails).toHaveLength(0);
     await submitFeedback({ roomId: hotel.rooms[0].id, rating: 1, comment: 'Dirty room' });

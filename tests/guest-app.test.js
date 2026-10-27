@@ -3,11 +3,11 @@ import { describe, it, expect, beforeEach, afterAll, beforeAll } from 'vitest';
 import { io as connect } from 'socket.io-client';
 import { app, resetDb, as, seedHotel, api, tokenFor, settle } from './helpers.js';
 import { db } from '../src/config/db.js';
-import { outbox } from '../src/core/notifier.js';
-import { clearSettingsCache } from '../src/modules/settings/settings.service.js';
-import { tickRules } from '../src/modules/rules/rules.service.js';
-import { initSockets, closeSockets } from '../src/core/sockets.js';
-import { registerListeners } from '../src/core/listeners.js';
+import { outbox } from '../src/services/notification.service.js';
+import { clearSettingsCache } from '../src/services/settings.service.js';
+import { tickRules } from '../src/services/rules.service.js';
+import { initSockets, closeSockets } from '../src/realtime/socket.js';
+import { registerListeners } from '../src/realtime/listeners.js';
 
 let hotel;
 let fd;

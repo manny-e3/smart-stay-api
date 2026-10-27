@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { resetDb, as, seedHotel, api, settle } from './helpers.js';
 import { db } from '../src/config/db.js';
-import { outbox } from '../src/core/notifier.js';
-import { MockAdapter } from '../src/adapters/mock.js';
-import { clearSettingsCache } from '../src/modules/settings/settings.service.js';
-import { markNoShows } from '../src/modules/stays/stays.service.js';
-import { runGuestRetention } from '../src/modules/stays/guests.service.js';
-import { retryFailedRevocations } from '../src/modules/keys/keys.service.js';
-import { tickRules } from '../src/modules/rules/rules.service.js';
+import { outbox } from '../src/services/notification.service.js';
+import { MockAdapter } from '../src/integrations/devices/mock.adapter.js';
+import { clearSettingsCache } from '../src/services/settings.service.js';
+import { markNoShows } from '../src/services/stays.service.js';
+import { runGuestRetention } from '../src/services/guests.service.js';
+import { retryFailedRevocations } from '../src/services/keys.service.js';
+import { tickRules } from '../src/services/rules.service.js';
 
 let hotel;
 beforeEach(async () => {

@@ -8,8 +8,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { env } from './config/env.js';
-import { buildRoutes } from './routes.js';
-import { notFoundHandler, errorHandler } from './core/errors.js';
+import { buildRoutes } from './routes/index.js';
+import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

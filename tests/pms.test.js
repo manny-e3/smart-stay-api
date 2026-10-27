@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { resetDb, as, seedHotel, api } from './helpers.js';
 import { db } from '../src/config/db.js';
-import { MockPms } from '../src/pms/index.js';
-import { clearSettingsCache } from '../src/modules/settings/settings.service.js';
+import { MockPms } from '../src/integrations/pms/index.js';
+import { clearSettingsCache } from '../src/services/settings.service.js';
 
 let hotel;
 let admin;

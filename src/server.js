@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { db, testConnection } from './config/db.js';
-import { initSockets, closeSockets } from './core/sockets.js';
-import { registerListeners } from './core/listeners.js';
+import { initSockets, closeSockets } from './realtime/socket.js';
+import { registerListeners } from './realtime/listeners.js';
 import { startJobs, stopJobs } from './jobs/index.js';
 
 const app = createApp();

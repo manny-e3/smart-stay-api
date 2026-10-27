@@ -1,12 +1,11 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { resetDb, as, seedHotel, checkIn, api } from './helpers.js';
 import { db } from '../src/config/db.js';
-import { outbox } from '../src/core/notifier.js';
-import { ingestEvent } from '../src/modules/devices/devices.service.js';
-import { reportGuestIssue } from '../src/modules/alerts/alerts.service.js';
-import { checkAdapterHealth } from '../src/jobs/adapterHealth.job.js';
-import { runDevicePoll } from '../src/jobs/devicePoll.job.js';
-import { MockAdapter } from '../src/adapters/mock.js';
+import { outbox } from '../src/services/notification.service.js';
+import { ingestEvent } from '../src/services/devices.service.js';
+import { reportGuestIssue } from '../src/services/alerts.service.js';
+import { checkAdapterHealth, pollDevices as runDevicePoll } from '../src/services/adapters.service.js';
+import { MockAdapter } from '../src/integrations/devices/mock.adapter.js';
 
 let hotel;
 beforeEach(async () => {

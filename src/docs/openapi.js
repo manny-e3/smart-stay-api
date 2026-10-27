@@ -2,7 +2,7 @@
  * OpenAPI 3.1 description of the SmartStay API, served at /docs (Swagger UI) and /docs/openapi.json.
  * tests/openapi.test.js checks that every operation here exists in the app.
  */
-import { PERMISSIONS } from '../core/permissions.js';
+import { PERMISSIONS } from '../config/permissions.js';
 
 /* ------------------------------------------------------------ helpers */
 
@@ -54,7 +54,7 @@ const paths = {};
 /**
  * Registers one operation.
  * auth: 'staff' (default) | 'guest' | 'none' | 'adapter' | 'pms'
- * perm: permission key from src/core/permissions.js; its roles are listed in the description.
+ * perm: permission key from src/config/permissions.js; its roles are listed in the description.
  */
 function op(method, path, { tag, summary, description = '', perm, auth = 'staff', params = [], body, bodyRequired = true, data, status = 200, errors = [], raw }) {
   const roles = perm ? PERMISSIONS[perm] : null;
@@ -649,6 +649,43 @@ op('delete', '/admin/rooms/{id}', {
   data: obj({ id: int(), number: str(), softDeleted: bool(), success: bool() }),
   errors: [404],
 });
+const deviceParams = [pathId('id', 'Room id'), pathId('deviceId')];
+op('get', '/admin/rooms/{id}/devices', {
+  tag: 'Rooms and devices',
+  summary: 'Devices in a room',
+  perm: 'board:read',
+  params: [pathId()],
+  data: arr(anyObj('Device with adapter name and latest state')),
+  errors: [404],
+});
+op('post', '/admin/rooms/{id}/devices', {
+  tag: 'Rooms and devices',
+  summary: 'Add a device to a room',
+  perm: 'mapping:manage',
+  description: 'Without `adapterId` the first enabled adapter is used; without `externalId` one is generated. A device with the same adapter and external id is moved into this room.',
+  params: [pathId()],
+  body: obj({ type: enm(DEVICE_TYPES), name: str(), adapterId: int(), externalId: str(), capabilities: nul(anyObj()), isActive: bool({ default: true }) }, ['type', 'name']),
+  data: obj({ id: int(), type: enm(DEVICE_TYPES), name: str(), externalId: str(), roomId: int(), isActive: bool() }),
+  status: 201,
+  errors: [404],
+});
+op('patch', '/admin/rooms/{id}/devices/{deviceId}', {
+  tag: 'Rooms and devices',
+  summary: 'Edit a device in a room',
+  perm: 'mapping:manage',
+  params: deviceParams,
+  body: opt({ name: str(), type: enm(DEVICE_TYPES), isActive: bool(), capabilities: nul(anyObj()) }),
+  data: anyObj('The device row'),
+  errors: [404],
+});
+op('delete', '/admin/rooms/{id}/devices/{deviceId}', {
+  tag: 'Rooms and devices',
+  summary: 'Remove a device from a room',
+  perm: 'mapping:manage',
+  params: deviceParams,
+  data: obj({ success: bool(), id: int() }),
+  errors: [404],
+});
 op('post', '/admin/rooms/upload', {
   tag: 'Rooms and devices',
   summary: 'Upload a room photo',
@@ -1169,6 +1206,56 @@ op('put', '/guest/preferences', {
   data: obj({ preferences: ref('Preferences'), updatedAt: nul(dt()), applied: nul(ref('PreferencesApplied')) }),
 });
 
+op('get', '/guest/rooms/catalog', {
+  tag: 'Guest booking',
+  summary: 'Room catalog for booking',
+  auth: 'none',
+  description: 'Suites with photos and features. `basePrice` comes from the hotel room type of the same name when it has a price.',
+  data: obj({ catalog: arr(anyObj('Suite: id, name, code, roomType, basePrice, images, features...')), availableRoomsCount: int(), currency: str(), taxesPercent: num(), checkInTime: str(), checkOutTime: str() }),
+});
+op('post', '/guest/bookings', {
+  tag: 'Guest booking',
+  summary: 'Book a room',
+  auth: 'none',
+  description:
+    'Creates a reservation. With `paymentMethod` credit_card or member_account and `instantAccess` (default true) a free room is assigned, the guest is checked in at once and `token` signs them in to the guest app. The response also has a top-level `message`. 409 when no room is free.',
+  body: obj(
+    {
+      roomType: str(),
+      arrival: str({ example: '2026-11-02' }),
+      departure: str({ example: '2026-11-05' }),
+      adults: int({ default: 1 }),
+      children: int({ default: 0 }),
+      guest: obj({ firstName: str(), lastName: str(), email: str({ format: 'email' }), phone: str(), notes: str() }, ['firstName', 'lastName', 'email']),
+      specialRequests: str(),
+      paymentMethod: enm(['credit_card', 'pay_at_hotel', 'member_account'], { default: 'credit_card' }),
+      cardLast4: str(),
+      instantAccess: bool({ default: true }),
+    },
+    ['roomType', 'arrival', 'departure', 'guest'],
+  ),
+  data: anyObj('stayId, reference, accessCode, qrToken, qrUrl, roomNumber, nights, totals, status, accessGranted, token, expiresAt, guest'),
+  status: 201,
+  errors: [409],
+});
+op('get', '/guest/bookings/my', {
+  tag: 'Guest booking',
+  summary: 'My bookings',
+  auth: 'guest',
+  data: arr(obj({ id: int(), reference: str(), status: enm(STAY_STATUSES), arrival: dt(), departure: dt(), adults: int(), children: int(), notes: nul(str()), roomNumber: nul(str()), roomType: nul(str()) })),
+});
+const voiceDoc = {
+  tag: 'Guest app',
+  summary: 'Voice command',
+  auth: 'guest',
+  description:
+    'Plain-language command ("set the temperature to 22", "do not disturb", "extra towels"). Controls room devices, DND and cleaning, opens requests or answers FAQs. Without a room the answer is sent as top-level `action` and `speechReply` instead of `data`.',
+  body: obj({ speechText: str({ maxLength: 500 }) }),
+  data: obj({ action: str(), speechReply: str(), originalPrompt: str(), executedDetails: nul(anyObj()) }),
+};
+op('post', '/guest/assistant/command', voiceDoc);
+op('post', '/guest/voice-command', { ...voiceDoc, summary: 'Voice command (older path)', description: 'Same as POST /guest/assistant/command.' });
+
 op('get', '/media/feedback-photos/{id}', {
   tag: 'Feedback',
   summary: 'Feedback photo (signed link)',
@@ -1220,7 +1307,7 @@ export function buildOpenApi({ serverUrl } = {}) {
     servers: [{ url: serverUrl || 'http://localhost:5000', description: 'API server' }],
     tags: [
       'Health', 'Staff auth', 'Room board', 'Rooms and devices', 'Requests', 'Alerts', 'Feedback', 'Staff accounts', 'Hotel settings',
-      'Audit log', 'Rules (Release 2)', 'Energy (Release 2)', 'Front desk', 'Stays', 'Guests', 'PMS sync', 'Guest app', 'Integrations (server to server)',
+      'Audit log', 'Rules (Release 2)', 'Energy (Release 2)', 'Front desk', 'Stays', 'Guests', 'PMS sync', 'Guest app', 'Guest booking', 'Integrations (server to server)',
     ].map((name) => ({ name })),
     paths,
     components: {

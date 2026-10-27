@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { resetDb, as, seedHotel, checkIn, settle } from './helpers.js';
 import { db } from '../src/config/db.js';
-import { outbox } from '../src/core/notifier.js';
-import { escalateOverdue } from '../src/modules/requests/requests.service.js';
-import { bus, EVENTS } from '../src/core/events.js';
+import { outbox } from '../src/services/notification.service.js';
+import { escalateOverdue } from '../src/services/requests.service.js';
+import { bus, EVENTS } from '../src/realtime/eventBus.js';
 
 let staff;
 let hotel;
@@ -110,7 +110,7 @@ describe('escalation', () => {
     const fresh = (await service.post('/admin/requests').send({ roomId: hotel.rooms[1].id, category: 'food' })).body.data;
     await db('requests').where({ id: old.id }).update({ created_at: new Date(Date.now() - 20 * 60_000) });
     await db('settings').where({ key: 'alert_email_recipients' }).update({ value: JSON.stringify(['ops@test.local']) });
-    (await import('../src/modules/settings/settings.service.js')).clearSettingsCache();
+    (await import('../src/services/settings.service.js')).clearSettingsCache();
 
     const escalated = await escalateOverdue();
     expect(escalated.map((r) => r.id)).toEqual([old.id]);

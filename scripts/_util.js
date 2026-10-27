@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { parse } from 'csv-parse/sync';
 import { db } from '../src/config/db.js';
+import * as Staff from '../src/models/staff.model.js';
 
 export function readCsv(file) {
   if (!file || !fs.existsSync(file)) {
@@ -12,7 +13,7 @@ export function readCsv(file) {
 
 /** The admin whose name goes in the audit log for script actions. */
 export async function scriptActor() {
-  const admin = await db('staff').where({ role: 'admin', is_active: true }).orderBy('id').first('id');
+  const admin = await Staff.findFirstActiveAdmin();
   if (!admin) throw new Error('No active admin found. Run "npm run seed" first.');
   return { id: admin.id, ip: 'script' };
 }

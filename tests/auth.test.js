@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { api, resetDb, PASSWORD, as } from './helpers.js';
 import { db } from '../src/config/db.js';
-import { generateCode } from '../src/core/totp.js';
+import { generateCode } from '../src/utils/totp.js';
 
 let staff;
 beforeEach(async () => {

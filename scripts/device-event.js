@@ -13,8 +13,8 @@
  * from this script are published inside this process. Use the webhook endpoint to test live updates.
  */
 import { run } from './_util.js';
-import { db } from '../src/config/db.js';
-import { DEVICE_EVENT_TYPES, ingestEvent } from '../src/modules/devices/devices.service.js';
+import * as Device from '../src/models/device.model.js';
+import { DEVICE_EVENT_TYPES, ingestEvent } from '../src/services/devices.service.js';
 
 const [room, deviceType, type, payload] = process.argv.slice(2);
 
@@ -24,7 +24,7 @@ run(async () => {
     process.exitCode = 1;
     return;
   }
-  const device = await db('devices as d').join('rooms as r', 'r.id', 'd.room_id').where({ 'r.number': room, 'd.type': deviceType, 'd.is_active': true }).first('d.*');
+  const device = await Device.findActiveInRoomByNumber(room, deviceType);
   if (!device) throw new Error(`No active ${deviceType} in room ${room}`);
   await ingestEvent(device, { type, payload: payload ? JSON.parse(payload) : {} });
   await new Promise((r) => setTimeout(r, 300));

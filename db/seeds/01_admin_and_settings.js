@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { env } from '../../src/config/env.js';
-import { DEFAULT_SETTINGS } from '../../src/modules/settings/settings.service.js';
+import { DEFAULT_SETTINGS } from '../../src/services/settings.service.js';
 
 /** Creates the first admin from ADMIN_* env values and default settings. Safe to run again. */
 export async function seed(knex) {

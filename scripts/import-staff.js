@@ -10,8 +10,8 @@
  */
 import crypto from 'node:crypto';
 import { readCsv, scriptActor, run } from './_util.js';
-import { createStaff } from '../src/modules/staff/staff.service.js';
-import { ROLES } from '../src/core/permissions.js';
+import { createStaff } from '../src/services/staff.service.js';
+import { ROLES } from '../src/config/permissions.js';
 
 const tempPassword = () => `${crypto.randomBytes(6).toString('base64url')}${crypto.randomInt(10, 99)}`;
 

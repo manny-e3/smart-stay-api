@@ -10,7 +10,7 @@
  * With --merge the file is added to the current mapping.
  */
 import { readCsv, scriptActor, run } from './_util.js';
-import { getMapping, putMapping } from '../src/modules/rooms/mapping.service.js';
+import { getMapping, putMapping } from '../src/services/mapping.service.js';
 
 const [file, flag] = process.argv.slice(2);
 

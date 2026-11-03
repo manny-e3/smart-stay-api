@@ -39,42 +39,49 @@ Works with XAMPP's MariaDB 10.4+ and with MySQL 8.
 
 ## Architecture
 
-SmartStay is a modular monolith: one Express process with three layers, backed by one MySQL database.
+SmartStay is one Express process backed by one MySQL database. The code is split into **layers**, so every
+endpoint is built the same way and you always know which folder to open.
 
 ```mermaid
-flowchart TB
-  Staff[Staff dashboard<br/>REST + Socket.IO]
-  Guest[Guest app<br/>guest token + /guest namespace]
-  PMS[PMS<br/>webhooks + reconciliation]
-  Hubs[Device hubs<br/>webhooks + polling]
-
-  subgraph API[Express API server]
-    Core[Core<br/>auth, roles, validation, audit, event bus]
-    Modules[Feature modules<br/>routes + service per feature]
-    Adapters[Adapters<br/>mock, http, vendor-specific]
-  end
-
+flowchart LR
+  Client[Staff dashboard / Guest app / PMS / device hubs]
+  Routes[routes/<br/>URL + middleware]
+  Validators[validators/<br/>zod schemas]
+  Controllers[controllers/<br/>read request, send response]
+  Services[services/<br/>business rules]
+  Models[models/<br/>SQL, one file per table group]
   DB[(MySQL / MariaDB)]
-  Jobs[Background jobs<br/>one DB lock per job]
+  Integrations[integrations/<br/>door locks, devices, PMS]
+  Realtime[realtime/<br/>event bus + Socket.IO]
 
-  Staff --> API
-  Guest --> API
-  PMS --> API
-  Hubs --> API
-  API --> DB
-  API --> Jobs
+  Client --> Routes
+  Routes -. validate .-> Validators
+  Routes --> Controllers --> Services --> Models --> DB
+  Services --> Integrations
+  Services -- events --> Realtime --> Client
 ```
 
-**Core** (`src/core/`) holds what every feature needs: staff and guest authentication (separate secrets and
-audiences), the role permission map, validation, error responses, the audit log, the event bus, sockets and
-notifications.
+A request passes through the layers in order, and each layer only calls the one below it:
 
-**Feature modules** (`src/modules/`) each own one area, such as rooms, requests, alerts, stays or rules, with a
-routes file and a service file. Services contain the business logic and never talk to sockets or email directly.
+| Layer | Folder | Does | Never does |
+|---|---|---|---|
+| Route | `src/routes/` | Maps a URL to middleware (sign-in, role check, rate limit, validation) and a controller | Logic or SQL |
+| Validator | `src/validators/` | Describes the allowed body, query and path values (zod) | Database access |
+| Controller | `src/controllers/` | Reads `req.valid` and `req.staff` / `req.guest`, calls a service, sends the JSON response | SQL or business rules |
+| Service | `src/services/` | Business rules: checks, status changes, transactions, events, emails | Touch `req`/`res` or write SQL |
+| Model | `src/models/` | All SQL, as small functions such as `Stay.findById(id)` or `Room.update(id, fields, trx)` | Business rules |
 
-**Adapters** (`src/adapters/`, `src/pms/`) hide vendor differences. The rest of the code calls methods like
-`issueKey`, `revokeKey` or `sendCommand` without knowing which lock or PMS is behind them. The `mock` adapter
-is used in development and tests.
+Supporting folders:
+
+- **`src/middleware/`**: staff and guest sign-in checks, `authorize(permission)`, validation, rate limits, photo uploads, error responses.
+- **`src/integrations/`**: adapters that hide vendor differences. Services call `issueKey`, `revokeKey` or
+  `sendCommand` without knowing which lock, device hub or PMS is behind them. The `mock` adapter is used in development and tests.
+- **`src/realtime/`**: the event bus and Socket.IO. Services publish an event; listeners push it to the right screens.
+- **`src/jobs/`**: background jobs (polling, escalation, rules, retention), each guarded by a database lock.
+- **`src/config/`**: environment, database connection and the role permission map.
+- **`src/utils/`**: small helpers (errors, crypto, time, file storage).
+
+New to the code? [docs/ADDING_AN_ENDPOINT.md](docs/ADDING_AN_ENDPOINT.md) walks through building one endpoint, file by file.
 
 ### The event bus
 
@@ -92,8 +99,8 @@ Adding a new side effect means adding a listener, not editing every service.
 | Guarantee | How it is enforced |
 |---|---|
 | A room has at most one checked-in stay | Unique database index |
-| Only one server runs each background job at a time | MySQL named lock per job (`src/core/`) |
-| Every endpoint follows the role map | `tests/permissions.test.js` checks all routes against `src/core/permissions.js` |
+| Only one server runs each background job at a time | MySQL named lock per job (`src/utils/dbLock.js`) |
+| Every endpoint follows the role map | `tests/permissions.test.js` checks all routes against `src/config/permissions.js` |
 | Every route is documented | `tests/openapi.test.js` fails on undocumented routes |
 | Each PMS event is applied once, in order | `eventId` deduplication; events older than the last applied change are ignored |
 | A guest's access follows their current stay | Every guest call re-checks the stay and room |
@@ -147,17 +154,29 @@ The token is saved automatically for every other request.
 
 ```
 src/
-  config/      env and database (knex)
-  core/        auth, role permissions, validation, errors, audit log, event bus,
-               sockets, notifications (email, browser push, guest push), DB job lock
-  adapters/    device API adapters: mock (dev/tests), http (generic), add vendors in index.js
-  pms/         PMS adapters and event handling
-  jobs/        device polling, escalation, adapter health, rules runner, energy import
-  modules/     one folder per feature: routes + service
+  app.js, server.js  Express app and HTTP / Socket.IO server
+  config/            env, database (knex + transaction helper), role permissions
+  routes/            one file per area; index.js mounts them all
+  validators/        zod schemas for request bodies, queries and path params
+  controllers/       request -> service -> response, one file per area
+  services/          business logic, one file per area
+  models/            SQL, one file per table group (stay.model.js, room.model.js, ...)
+  middleware/        sign-in checks, validation, rate limits, uploads, error handler
+  integrations/
+    devices/         device adapters: mock (dev/tests), http (generic); add vendors in index.js
+    pms/             PMS adapters
+  realtime/          event bus, Socket.IO server, listeners that turn events into live updates
+  jobs/              background job scheduler
+  utils/             errors, crypto, time, file storage, DB job lock
+  docs/              OpenAPI document (served at /docs)
 db/migrations, db/seeds
-scripts/       pilot import tools and device event simulator
-tests/         API tests, including a role check on every endpoint
+scripts/             pilot import tools and device event simulator
+tests/               API tests, including a role check on every endpoint
 ```
+
+Example, checking a guest in: `routes/stays.routes.js` → `validators/stays.validator.js` →
+`controllers/stays.controller.js` → `services/stays.service.js` → `models/stay.model.js`, `models/room.model.js`,
+`models/guestAccess.model.js`.
 
 ## Roles
 
@@ -173,7 +192,7 @@ tests/         API tests, including a role check on every endpoint
 
 Guest phone, email and booking reference in room detail are only shown to front desk, manager and admin.
 
-The map lives in `src/core/permissions.js`. `tests/permissions.test.js` checks every endpoint against it.
+The map lives in `src/config/permissions.js`. `tests/permissions.test.js` checks every endpoint against it.
 
 ## Endpoints
 
@@ -309,7 +328,7 @@ Credentials are stored encrypted (`DATA_ENCRYPTION_SECRET`). A key that can't be
 | POST /integrations/pms/{id}/events | Webhook, header `X-PMS-Secret`, body `{ events: [{ eventId, type, occurredAt, reservation }] }` |
 
 Event types: `reservation.upsert`, `reservation.cancelled`, `reservation.no_show`, `stay.checked_in`,
-`stay.checked_out`, `stay.room_moved`. Each event carries the full reservation (see `src/pms/index.js`),
+`stay.checked_out`, `stay.room_moved`. Each event carries the full reservation (see `src/integrations/pms/index.js`),
 each `eventId` is processed once, and events older than the last applied change are ignored.
 PMS rooms match SmartStay rooms by `rooms.pms_code`, or by room number.
 Set `booking_mode` to `pms` once the PMS is live: staff can still check in and out as a fallback,
@@ -364,8 +383,8 @@ npm run device:event -- 101 lock fault '{"message":"Motor jammed"}'
 
 ## Adding real vendors
 
-- **Door locks:** implement `issueKey`, `updateKey`, `revokeKey` and `unlock` in a device adapter (`src/adapters/`), or point the `http` adapter at a bridge that follows its contract.
-- **PMS:** add a class to `src/pms/index.js` that returns normalised reservations, or use the `http` PMS with a bridge. Webhook events use the format above.
+- **Door locks:** implement `issueKey`, `updateKey`, `revokeKey` and `unlock` in a device adapter (`src/integrations/devices/`), or point the `http` adapter at a bridge that follows its contract.
+- **PMS:** add a class to `src/integrations/pms/index.js` that returns normalised reservations, or use the `http` PMS with a bridge. Webhook events use the format above.
 - **Guest push:** needs a Firebase service account file in `FIREBASE_SERVICE_ACCOUNT`.
 
 ## Before going live

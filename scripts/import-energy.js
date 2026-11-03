@@ -6,13 +6,14 @@
  * Columns: room, period_start (ISO date-time, hour bucket), kwh, external_id (optional meter id)
  */
 import { readCsv, run } from './_util.js';
-import { db } from '../src/config/db.js';
-import { saveReadings } from '../src/modules/energy/energy.service.js';
+import * as Room from '../src/models/room.model.js';
+import * as Device from '../src/models/device.model.js';
+import { saveReadings } from '../src/services/energy.service.js';
 
 run(async () => {
   const rows = readCsv(process.argv[2]);
-  const rooms = new Map((await db('rooms').select('id', 'number')).map((r) => [r.number, r.id]));
-  const meters = new Map((await db('devices').where({ type: 'meter' }).select('id', 'external_id')).map((d) => [d.external_id, d.id]));
+  const rooms = await Room.idsByNumber();
+  const meters = new Map((await Device.listMeters()).map((d) => [d.external_id, d.id]));
   const readings = [];
   for (const [i, r] of rows.entries()) {
     const roomId = rooms.get(r.room);

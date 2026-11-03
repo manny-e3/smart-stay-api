@@ -2,22 +2,16 @@ import request from 'supertest';
 import bcrypt from 'bcryptjs';
 import { createApp } from '../src/app.js';
 import { db } from '../src/config/db.js';
-import { ROLES } from '../src/core/permissions.js';
-import { outbox } from '../src/core/notifier.js';
-import { clearSettingsCache, DEFAULT_SETTINGS } from '../src/modules/settings/settings.service.js';
-import { MockAdapter } from '../src/adapters/mock.js';
-import { MockPms } from '../src/pms/index.js';
+import { ROLES } from '../src/config/permissions.js';
+import { outbox } from '../src/services/notification.service.js';
+import { clearSettingsCache, DEFAULT_SETTINGS } from '../src/services/settings.service.js';
+import { MockAdapter } from '../src/integrations/devices/mock.adapter.js';
+import { MockPms } from '../src/integrations/pms/index.js';
 
 export const app = createApp();
 export const api = () => request(app);
 export const PASSWORD = 'TestPassword123';
 
-const TABLES = [
-  'guest_preferences', 'pms_events', 'pms_connections', 'digital_keys', 'guest_sessions', 'guest_access_codes', 'stay_events', 'stay_guests',
-  'energy_readings', 'rule_runs', 'rules', 'audit_log', 'push_subscriptions', 'settings', 'alert_occurrences', 'alerts',
-  'feedback_photos', 'feedback', 'request_events', 'requests', 'guest_devices', 'stays', 'guests', 'device_events',
-  'device_states', 'devices', 'adapters', 'rooms', 'room_types', 'floors', 'sessions', 'staff',
-];
 
 let passwordHash;
 
@@ -26,8 +20,13 @@ export async function resetDb() {
   // FOREIGN_KEY_CHECKS is per connection, so every statement must use the same pooled connection.
   const conn = await db.client.acquireConnection();
   try {
+    // Every table except the migration bookkeeping, so new tables are always included.
+    const [rows] = await db
+      .raw("SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'")
+      .connection(conn);
+    const tables = rows.map((r) => r.name ?? r.NAME ?? r.TABLE_NAME).filter((t) => !t.startsWith('knex_migrations'));
     await db.raw('SET FOREIGN_KEY_CHECKS = 0').connection(conn);
-    for (const t of TABLES) await db.raw(`TRUNCATE TABLE \`${t}\``).connection(conn);
+    for (const t of tables) await db.raw(`TRUNCATE TABLE \`${t}\``).connection(conn);
     await db.raw('SET FOREIGN_KEY_CHECKS = 1').connection(conn);
   } finally {
     await db.client.releaseConnection(conn);

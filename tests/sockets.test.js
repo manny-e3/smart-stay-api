@@ -3,8 +3,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { io as connect } from 'socket.io-client';
 import { app, resetDb, tokenFor, seedHotel, as } from './helpers.js';
 import { db } from '../src/config/db.js';
-import { initSockets, closeSockets } from '../src/core/sockets.js';
-import { registerListeners } from '../src/core/listeners.js';
+import { initSockets, closeSockets } from '../src/realtime/socket.js';
+import { registerListeners } from '../src/realtime/listeners.js';
 
 let server;
 let url;

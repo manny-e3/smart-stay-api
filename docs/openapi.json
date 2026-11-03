@@ -64,6 +64,9 @@
       "name": "Guest app"
     },
     {
+      "name": "Guest booking"
+    },
+    {
       "name": "Integrations (server to server)"
     }
   ],
@@ -1476,6 +1479,556 @@
           },
           "409": {
             "description": "Conflicts with existing data (duplicate, room occupied, overlapping booking)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/rooms/{id}/devices": {
+      "get": {
+        "tags": [
+          "Rooms and devices"
+        ],
+        "summary": "Devices in a room",
+        "description": "**Roles:** service, maintenance, front_desk, manager, admin",
+        "operationId": "getAdminRoomsIdDevices",
+        "security": [
+          {
+            "staffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true,
+                        "description": "Device with adapter name and latest state"
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your role is not allowed to do this",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-roles": [
+          "service",
+          "maintenance",
+          "front_desk",
+          "manager",
+          "admin"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Rooms and devices"
+        ],
+        "summary": "Add a device to a room",
+        "description": "Without `adapterId` the first enabled adapter is used; without `externalId` one is generated. A device with the same adapter and external id is moved into this room.\n\n**Roles:** admin",
+        "operationId": "postAdminRoomsIdDevices",
+        "security": [
+          {
+            "staffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "lock",
+                      "thermostat",
+                      "light",
+                      "curtain",
+                      "sensor",
+                      "meter",
+                      "phone",
+                      "tv",
+                      "speaker",
+                      "other"
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "adapterId": {
+                    "type": "integer"
+                  },
+                  "externalId": {
+                    "type": "string"
+                  },
+                  "capabilities": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": true
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "isActive": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "type",
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "lock",
+                            "thermostat",
+                            "light",
+                            "curtain",
+                            "sensor",
+                            "meter",
+                            "phone",
+                            "tv",
+                            "speaker",
+                            "other"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "externalId": {
+                          "type": "string"
+                        },
+                        "roomId": {
+                          "type": "integer"
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "name",
+                        "externalId",
+                        "roomId",
+                        "isActive"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your role is not allowed to do this",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/rooms/{id}/devices/{deviceId}": {
+      "patch": {
+        "tags": [
+          "Rooms and devices"
+        ],
+        "summary": "Edit a device in a room",
+        "description": "**Roles:** admin",
+        "operationId": "patchAdminRoomsIdDevicesDeviceId",
+        "security": [
+          {
+            "staffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Room id"
+          },
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "lock",
+                      "thermostat",
+                      "light",
+                      "curtain",
+                      "sensor",
+                      "meter",
+                      "phone",
+                      "tv",
+                      "speaker",
+                      "other"
+                    ]
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  },
+                  "capabilities": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": true
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "The device row"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your role is not allowed to do this",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-roles": [
+          "admin"
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Rooms and devices"
+        ],
+        "summary": "Remove a device from a room",
+        "description": "**Roles:** admin",
+        "operationId": "deleteAdminRoomsIdDevicesDeviceId",
+        "security": [
+          {
+            "staffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Room id"
+          },
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean"
+                        },
+                        "id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "success",
+                        "id"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your role is not allowed to do this",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -7337,6 +7890,233 @@
         ]
       }
     },
+    "/admin/stays/{id}/qr": {
+      "get": {
+        "tags": [
+          "Stays"
+        ],
+        "summary": "Get current QR access code",
+        "description": "**Roles:** front_desk, manager, admin",
+        "operationId": "getAdminStaysIdQr",
+        "security": [
+          {
+            "staffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "accessCode": {
+                          "type": "string"
+                        },
+                        "qrToken": {
+                          "type": "string"
+                        },
+                        "qrUrl": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "accessCode",
+                        "qrToken",
+                        "qrUrl"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your role is not allowed to do this",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-roles": [
+          "front_desk",
+          "manager",
+          "admin"
+        ]
+      }
+    },
+    "/admin/stays/scan-qr": {
+      "post": {
+        "tags": [
+          "Stays"
+        ],
+        "summary": "Scan guest QR code",
+        "description": "**Roles:** front_desk, manager, admin",
+        "operationId": "postAdminStaysScanQr",
+        "security": [
+          {
+            "staffBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "qrData": {
+                    "type": "string"
+                  },
+                  "checkInNow": {
+                    "type": "boolean"
+                  },
+                  "roomId": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "qrData"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "stay": {
+                          "$ref": "#/components/schemas/StayDetail"
+                        }
+                      },
+                      "required": [
+                        "stay"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your role is not allowed to do this",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-roles": [
+          "front_desk",
+          "manager",
+          "admin"
+        ]
+      }
+    },
     "/admin/guests": {
       "get": {
         "tags": [
@@ -8762,6 +9542,392 @@
         ]
       }
     },
+    "/guest/forgot-password": {
+      "post": {
+        "tags": [
+          "Guest app"
+        ],
+        "summary": "Request password reset code",
+        "operationId": "postGuestForgotPassword",
+        "security": [
+          {
+            "staffBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guest/reset-password": {
+      "post": {
+        "tags": [
+          "Guest app"
+        ],
+        "summary": "Reset password with 6-digit verification code",
+        "operationId": "postGuestResetPassword",
+        "security": [
+          {
+            "staffBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "code",
+                  "newPassword"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guest/register": {
+      "post": {
+        "tags": [
+          "Guest app"
+        ],
+        "summary": "Register permanent guest profile",
+        "operationId": "postGuestRegister",
+        "security": [
+          {
+            "staffBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "object",
+                    "properties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "email",
+                  "phone"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "guest": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "number"
+                            },
+                            "firstName": {
+                              "type": "string"
+                            },
+                            "lastName": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "firstName",
+                            "lastName",
+                            "email"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "guest"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guest/history": {
+      "get": {
+        "tags": [
+          "Guest app"
+        ],
+        "summary": "List past and current stays for this guest",
+        "operationId": "getGuestHistory",
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "number"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "suiteNumber": {
+                            "type": "string"
+                          },
+                          "suiteType": {
+                            "type": "string"
+                          },
+                          "checkInDate": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "checkOutDate": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "nights": {
+                            "type": "number"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "reference",
+                          "suiteNumber",
+                          "suiteType",
+                          "checkInDate",
+                          "checkOutDate",
+                          "nights",
+                          "status"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/guest/info": {
       "get": {
         "tags": [
@@ -8846,6 +10012,142 @@
                     "success",
                     "data"
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guest/link-booking": {
+      "post": {
+        "tags": [
+          "Guest app"
+        ],
+        "summary": "Link a stay to the current authenticated guest session",
+        "operationId": "postGuestLinkBooking",
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bookingCode": {
+                    "type": "object",
+                    "properties": {
+                      "type": "string"
+                    }
+                  },
+                  "reference": {
+                    "type": "object",
+                    "properties": {
+                      "type": "string"
+                    }
+                  },
+                  "lastName": {
+                    "type": "object",
+                    "properties": {
+                      "type": "string"
+                    }
+                  },
+                  "qrToken": {
+                    "type": "object",
+                    "properties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "bookingCode",
+                  "reference",
+                  "lastName",
+                  "qrToken"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "stayId": {
+                          "type": "number"
+                        },
+                        "reference": {
+                          "type": "string"
+                        },
+                        "roomNumber": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "stayId",
+                        "reference",
+                        "roomNumber"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your role is not allowed to do this",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -10227,6 +11529,550 @@
                         "preferences",
                         "updatedAt",
                         "applied"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guest/rooms/catalog": {
+      "get": {
+        "tags": [
+          "Guest booking"
+        ],
+        "summary": "Room catalog for booking",
+        "description": "Suites with photos and features. `basePrice` comes from the hotel room type of the same name when it has a price.",
+        "operationId": "getGuestRoomsCatalog",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "catalog": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "description": "Suite: id, name, code, roomType, basePrice, images, features..."
+                          }
+                        },
+                        "availableRoomsCount": {
+                          "type": "integer"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "taxesPercent": {
+                          "type": "number"
+                        },
+                        "checkInTime": {
+                          "type": "string"
+                        },
+                        "checkOutTime": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "catalog",
+                        "availableRoomsCount",
+                        "currency",
+                        "taxesPercent",
+                        "checkInTime",
+                        "checkOutTime"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guest/bookings": {
+      "post": {
+        "tags": [
+          "Guest booking"
+        ],
+        "summary": "Book a room",
+        "description": "Creates a reservation. With `paymentMethod` credit_card or member_account and `instantAccess` (default true) a free room is assigned, the guest is checked in at once and `token` signs them in to the guest app. The response also has a top-level `message`. 409 when no room is free.",
+        "operationId": "postGuestBookings",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "roomType": {
+                    "type": "string"
+                  },
+                  "arrival": {
+                    "type": "string",
+                    "example": "2026-11-02"
+                  },
+                  "departure": {
+                    "type": "string",
+                    "example": "2026-11-05"
+                  },
+                  "adults": {
+                    "type": "integer",
+                    "default": 1
+                  },
+                  "children": {
+                    "type": "integer",
+                    "default": 0
+                  },
+                  "guest": {
+                    "type": "object",
+                    "properties": {
+                      "firstName": {
+                        "type": "string"
+                      },
+                      "lastName": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string",
+                        "format": "email"
+                      },
+                      "phone": {
+                        "type": "string"
+                      },
+                      "notes": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "firstName",
+                      "lastName",
+                      "email"
+                    ]
+                  },
+                  "specialRequests": {
+                    "type": "string"
+                  },
+                  "paymentMethod": {
+                    "type": "string",
+                    "enum": [
+                      "credit_card",
+                      "pay_at_hotel",
+                      "member_account"
+                    ],
+                    "default": "credit_card"
+                  },
+                  "cardLast4": {
+                    "type": "string"
+                  },
+                  "instantAccess": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "roomType",
+                  "arrival",
+                  "departure",
+                  "guest"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "stayId, reference, accessCode, qrToken, qrUrl, roomNumber, nights, totals, status, accessGranted, token, expiresAt, guest"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with existing data (duplicate, room occupied, overlapping booking)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guest/bookings/my": {
+      "get": {
+        "tags": [
+          "Guest booking"
+        ],
+        "summary": "My bookings",
+        "operationId": "getGuestBookingsMy",
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "reserved",
+                              "checked_in",
+                              "checked_out",
+                              "cancelled",
+                              "no_show"
+                            ]
+                          },
+                          "arrival": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "departure": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "adults": {
+                            "type": "integer"
+                          },
+                          "children": {
+                            "type": "integer"
+                          },
+                          "notes": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "roomNumber": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "roomType": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "reference",
+                          "status",
+                          "arrival",
+                          "departure",
+                          "adults",
+                          "children",
+                          "notes",
+                          "roomNumber",
+                          "roomType"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guest/assistant/command": {
+      "post": {
+        "tags": [
+          "Guest app"
+        ],
+        "summary": "Voice command",
+        "description": "Plain-language command (\"set the temperature to 22\", \"do not disturb\", \"extra towels\"). Controls room devices, DND and cleaning, opens requests or answers FAQs. Without a room the answer is sent as top-level `action` and `speechReply` instead of `data`.",
+        "operationId": "postGuestAssistantCommand",
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "speechText": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "speechText"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "action": {
+                          "type": "string"
+                        },
+                        "speechReply": {
+                          "type": "string"
+                        },
+                        "originalPrompt": {
+                          "type": "string"
+                        },
+                        "executedDetails": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "action",
+                        "speechReply",
+                        "originalPrompt",
+                        "executedDetails"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or the action is not allowed in the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guest/voice-command": {
+      "post": {
+        "tags": [
+          "Guest app"
+        ],
+        "summary": "Voice command (older path)",
+        "description": "Same as POST /guest/assistant/command.",
+        "operationId": "postGuestVoiceCommand",
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "speechText": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "speechText"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "action": {
+                          "type": "string"
+                        },
+                        "speechReply": {
+                          "type": "string"
+                        },
+                        "originalPrompt": {
+                          "type": "string"
+                        },
+                        "executedDetails": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": true
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "action",
+                        "speechReply",
+                        "originalPrompt",
+                        "executedDetails"
                       ]
                     }
                   },

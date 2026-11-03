@@ -34,12 +34,13 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
   const now = new Date();
   const graceMs = settings.checkout_grace_minutes * 60_000;
 
-  const [stays, arrivals, requests, alerts, offline] = await Promise.all([
+  const [stays, arrivals, requests, alerts, offline, roomDevices] = await Promise.all([
     Stay.checkedInWithGuestForRooms(ids),
     Stay.reservedArrivingForRooms(ids, today.end, now),
     Request.openCountsByRoom(ids, OPEN_REQUEST_STATUSES),
     Alert.openCountsByRoom(ids),
     Device.offlineCountsByRoom(ids),
+    Device.inRoomsOfTypes(ids, ['sensor', 'thermostat', 'meter', 'light']),
   ]);
 
   const stayBy = new Map(stays.map((s) => [s.room_id, s]));
@@ -47,6 +48,12 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
   const reqBy = new Map(requests.map((r) => [r.room_id, r]));
   const alertBy = new Map(alerts.map((a) => [a.room_id, a]));
   const offBy = new Map(offline.map((o) => [o.room_id, Number(o.n)]));
+
+  const devicesByRoom = new Map();
+  for (const d of roomDevices) {
+    if (!devicesByRoom.has(d.room_id)) devicesByRoom.set(d.room_id, []);
+    devicesByRoom.get(d.room_id).push(d);
+  }
 
   return rooms.map((r) => {
     const stay = stayBy.get(r.id);
@@ -58,6 +65,27 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
     const dnd = occupied && Boolean(r.dnd);
     const resolvedPrice = r.base_price != null ? Number(r.base_price) : r.type_base_price != null ? Number(r.type_base_price) : 0;
     const status = openAlerts ? 'alert' : openRequests ? 'request' : dnd ? 'dnd' : occupied ? 'occupied' : 'vacant';
+
+    const devs = devicesByRoom.get(r.id) || [];
+    const bme = devs.find((d) => d.external_id?.includes('bme680')) ||
+                devs.find((d) => d.type === 'sensor' && d.state?.temperature !== undefined) ||
+                devs.find((d) => d.type === 'thermostat');
+    const meter = devs.find((d) => d.type === 'meter' && (d.state?.energy !== undefined || d.state?.power !== undefined)) ||
+                  devs.find((d) => d.type === 'meter');
+    const lights = devs.filter((d) => d.type === 'light');
+
+    const bmeState = typeof bme?.state === 'string' ? JSON.parse(bme.state) : (bme?.state || {});
+    const meterState = typeof meter?.state === 'string' ? JSON.parse(meter.state) : (meter?.state || {});
+
+    const temp = bmeState.temperature != null ? Number(bmeState.temperature) : null;
+    const humidity = bmeState.humidity != null ? Number(bmeState.humidity) : null;
+    const iaq = bmeState.airQuality || null;
+    const energy24h = meterState.energy != null ? Number((meterState.energy / 1000).toFixed(1)) : null;
+
+    const anyLightOn = lights.some((l) => {
+      const st = typeof l.state === 'string' ? JSON.parse(l.state) : (l.state || {});
+      return Boolean(st.on);
+    });
     return {
       basePrice: resolvedPrice,
       price: resolvedPrice,
@@ -83,6 +111,13 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
       cleaningRequested: Boolean(r.cleaning_requested),
       cleaningRequestedAt: r.cleaning_requested_at ?? null,
       images: parseImages(r.images),
+      temp,
+      humidity,
+      iaq,
+      energy24h,
+      devices: {
+        light: anyLightOn,
+      },
     };
   });
 }

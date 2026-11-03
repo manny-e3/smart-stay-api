@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { env } from '../config/env.js';
 import { buildOpenApi } from '../docs/openapi.js';
@@ -15,6 +15,7 @@ import auditRoutes from './audit.routes.js';
 import rulesRoutes from './rules.routes.js';
 import energyRoutes from './energy.routes.js';
 import integrationsRoutes from './integrations.routes.js';
+import esp32Routes from './esp32.routes.js';
 import staysRoutes from './stays.routes.js';
 import guestsRoutes from './guests.routes.js';
 import frontDeskRoutes from './frontDesk.routes.js';
@@ -46,6 +47,7 @@ export function buildRoutes() {
   root.use('/guest', guestAppRoutes);
   root.use('/media', mediaRoutes);
   root.use('/integrations/pms', pmsWebhookRouter);
+  root.use('/integrations/esp32', esp32Routes);
   root.use('/integrations', integrationsRoutes);
 
   const admin = Router();

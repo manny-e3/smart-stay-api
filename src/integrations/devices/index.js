@@ -1,10 +1,12 @@
 import { MockAdapter } from './mock.adapter.js';
 import { HttpAdapter } from './http.adapter.js';
+import { Esp32Adapter } from './esp32.adapter.js';
 
 /** Vendor name (adapters.vendor column) -> adapter class. Add real vendor adapters here. */
 export const VENDORS = {
   mock: MockAdapter,
   http: HttpAdapter,
+  esp32: Esp32Adapter,
 };
 
 const instances = new Map();

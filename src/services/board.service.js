@@ -96,6 +96,15 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
     const smokeValue = mqState.smokeValue != null ? Number(mqState.smokeValue) : null;
     const smokeAlert = Boolean(mqState.smokeAlert || (smokeValue && smokeValue > 1800));
 
+    let hubDeviceId = null;
+    for (const d of devs) {
+      const caps = typeof d.capabilities === 'string' ? JSON.parse(d.capabilities || '{}') : (d.capabilities || {});
+      if (caps.hubDeviceId) {
+        hubDeviceId = caps.hubDeviceId;
+        break;
+      }
+    }
+
     const anyLightOn = lights.some((l) => {
       const st = typeof l.state === 'string' ? JSON.parse(l.state) : (l.state || {});
       return Boolean(st.on);
@@ -135,6 +144,7 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
       current,
       smokeValue,
       smokeAlert,
+      hubDeviceId,
       devices: {
         light: anyLightOn,
         ac: acState.power ?? acState.on ?? true,
@@ -211,6 +221,7 @@ export async function getRoomDetail(roomId, { includeContact = true } = {}) {
     devices: devices.map((d) => ({
       id: d.id, type: d.type, name: d.name, externalId: d.external_id, adapter: d.adapter_name, adapterStatus: d.adapter_status,
       online: d.online ?? null, state: d.state ?? {}, lastSeenAt: d.last_seen_at ?? null,
+      capabilities: typeof d.capabilities === 'string' ? JSON.parse(d.capabilities || '{}') : (d.capabilities || {}),
     })),
     recentFeedback: feedback.map((f) => ({ id: f.id, rating: f.rating, comment: f.comment, createdAt: f.created_at })),
   };

@@ -118,7 +118,7 @@ export function detailForRoom(roomId) {
     .leftJoin('device_states as ds', 'ds.device_id', 'd.id')
     .where({ 'd.room_id': roomId, 'd.is_active': true })
     .orderBy(['d.type', 'd.name'])
-    .select('d.id', 'd.type', 'd.name', 'd.external_id', 'ad.name as adapter_name', 'ad.status as adapter_status', 'ds.online', 'ds.state', 'ds.last_seen_at');
+    .select('d.id', 'd.type', 'd.name', 'd.external_id', 'd.capabilities', 'ad.name as adapter_name', 'ad.status as adapter_status', 'ds.online', 'ds.state', 'ds.last_seen_at');
 }
 
 /** Every device in a room (active or not), for the room devices screen. */

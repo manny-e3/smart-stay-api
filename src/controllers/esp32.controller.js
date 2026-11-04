@@ -16,6 +16,16 @@ export async function postAlert(req, res) {
   res.status(201).json({ success: true, data });
 }
 
+/** POST /integrations/esp32/rooms/:roomNumber/assign-hub */
+export async function postAssignHub(req, res) {
+  const data = await esp32Service.assignHubToRoom({
+    roomNumber: req.params.roomNumber,
+    deviceId: req.body.deviceId,
+    ip: req.body.ip,
+  });
+  res.json({ success: true, data });
+}
+
 /** GET /integrations/esp32/rooms/:roomNumber/status */
 export async function getStatus(req, res) {
   const data = await esp32Service.getRoomHardwareStatus(req.params.roomNumber);

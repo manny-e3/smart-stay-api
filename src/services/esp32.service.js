@@ -30,6 +30,10 @@ async function getOrCreateEsp32Adapter(trx = db) {
 async function ensureRoomDevices(room, adapterId, deviceIp = null, trx = db) {
   const roomNumber = room.number;
   const desired = [
+    { external_id: `light-${roomNumber}`, type: 'light', name: 'Suite Light', caps: { dimmable: false } },
+    { external_id: `ac-${roomNumber}`, type: 'thermostat', name: 'Air Conditioner', caps: { modes: ['cool', 'heat', 'auto', 'fan'] } },
+    { external_id: `tv-${roomNumber}`, type: 'tv', name: 'Smart TV', caps: {} },
+    { external_id: `fridge-${roomNumber}`, type: 'other', name: 'Minibar Fridge', caps: {} },
     { external_id: `light-1-${roomNumber}`, type: 'light', name: 'Ceiling Light', caps: { dimmable: false } },
     { external_id: `light-2-${roomNumber}`, type: 'light', name: 'Bedside Light', caps: { dimmable: false } },
     { external_id: `light-3-${roomNumber}`, type: 'light', name: 'Desk Light', caps: { dimmable: false } },
@@ -77,10 +81,40 @@ async function ensureRoomDevices(room, adapterId, deviceIp = null, trx = db) {
   return devices;
 }
 
-export async function processTelemetry({ roomNumber, bme680, pzem, mq2, battery, relays, ip }) {
+export async function assignHubToRoom({ roomNumber, deviceId, ip = null }) {
   const room = await Room.findByNumber(roomNumber);
+  if (!room) throw notFound(`Room ${roomNumber}`);
+  const adapter = await getOrCreateEsp32Adapter();
+  const devices = await ensureRoomDevices(room, adapter.id, ip);
+
+  if (deviceId) {
+    for (const d of devices) {
+      let caps = d.capabilities;
+      if (typeof caps === 'string') {
+        try { caps = JSON.parse(caps); } catch {}
+      }
+      const updated = JSON.stringify({ ...(caps || {}), hubDeviceId: deviceId, ...(ip ? { ip } : {}) });
+      await db('devices').where({ id: d.id }).update({ capabilities: updated });
+    }
+  }
+
+  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber });
+  return { ok: true, roomNumber, deviceId, count: devices.length };
+}
+
+export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2, battery, relays, ip }) {
+  let room = roomNumber ? await Room.findByNumber(roomNumber) : null;
+  if (!room && deviceId) {
+    const dev = await db('devices')
+      .whereRaw(`JSON_UNQUOTE(JSON_EXTRACT(capabilities, '$.hubDeviceId')) = ?`, [deviceId])
+      .orWhere('external_id', 'like', `%${deviceId}%`)
+      .first('room_id');
+    if (dev?.room_id) {
+      room = await Room.findById(dev.room_id);
+    }
+  }
   if (!room) {
-    throw notFound(`Room ${roomNumber}`);
+    throw notFound(`Room ${roomNumber || deviceId}`);
   }
 
   const adapter = await getOrCreateEsp32Adapter();
@@ -145,19 +179,22 @@ export async function processTelemetry({ roomNumber, bme680, pzem, mq2, battery,
   // 3. Update 4-Channel Relays
   if (relays) {
     const relayMap = [
-      { key: 'light1', ext: `light-1-${roomNumber}` },
-      { key: 'light2', ext: `light-2-${roomNumber}` },
-      { key: 'light3', ext: `light-3-${roomNumber}` },
-      { key: 'light4', ext: `light-4-${roomNumber}` },
+      { keys: ['light', 'light1'], exts: [`light-${room.number}`, `light-1-${room.number}`] },
+      { keys: ['ac', 'light2'], exts: [`ac-${room.number}`, `light-2-${room.number}`] },
+      { keys: ['tv', 'light3'], exts: [`tv-${room.number}`, `light-3-${room.number}`] },
+      { keys: ['fridge', 'light4'], exts: [`fridge-${room.number}`, `light-4-${room.number}`] },
     ];
 
-    for (const { key, ext } of relayMap) {
-      if (relays[key] !== undefined) {
-        const dev = byExternal.get(ext);
-        if (dev) {
-          const state = { on: Boolean(relays[key]) };
-          await Device.updateState(dev.id, { online: true, state, last_seen_at: now });
-          bus.publish(EVENTS.DEVICE_STATE, { deviceId: dev.id, roomId: room.id, online: true, state });
+    for (const { keys, exts } of relayMap) {
+      const val = keys.map((k) => relays[k]).find((v) => v !== undefined);
+      if (val !== undefined) {
+        for (const ext of exts) {
+          const dev = byExternal.get(ext);
+          if (dev) {
+            const state = dev.type === 'thermostat' ? { power: Boolean(val), on: Boolean(val) } : { on: Boolean(val) };
+            await Device.updateState(dev.id, { online: true, state, last_seen_at: now });
+            bus.publish(EVENTS.DEVICE_STATE, { deviceId: dev.id, roomId: room.id, online: true, state });
+          }
         }
       }
     }

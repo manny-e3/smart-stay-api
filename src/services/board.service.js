@@ -72,15 +72,29 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
                 devs.find((d) => d.type === 'thermostat');
     const meter = devs.find((d) => d.type === 'meter' && (d.state?.energy !== undefined || d.state?.power !== undefined)) ||
                   devs.find((d) => d.type === 'meter');
+    const mq = devs.find((d) => d.external_id?.includes('mq2') || (d.type === 'sensor' && d.name?.toLowerCase().includes('smoke')));
     const lights = devs.filter((d) => d.type === 'light');
+    const acDev = devs.find((d) => d.type === 'thermostat' || d.external_id?.includes('ac'));
+    const tvDev = devs.find((d) => d.type === 'tv' || d.external_id?.includes('tv'));
+    const fridgeDev = devs.find((d) => d.external_id?.includes('fridge') || d.name?.toLowerCase().includes('fridge'));
 
     const bmeState = typeof bme?.state === 'string' ? JSON.parse(bme.state) : (bme?.state || {});
     const meterState = typeof meter?.state === 'string' ? JSON.parse(meter.state) : (meter?.state || {});
+    const mqState = typeof mq?.state === 'string' ? JSON.parse(mq.state) : (mq?.state || {});
+    const acState = typeof acDev?.state === 'string' ? JSON.parse(acDev.state) : (acDev?.state || {});
+    const tvState = typeof tvDev?.state === 'string' ? JSON.parse(tvDev.state) : (tvDev?.state || {});
+    const fridgeState = typeof fridgeDev?.state === 'string' ? JSON.parse(fridgeDev.state) : (fridgeDev?.state || {});
 
     const temp = bmeState.temperature != null ? Number(bmeState.temperature) : null;
     const humidity = bmeState.humidity != null ? Number(bmeState.humidity) : null;
+    const pressure = bmeState.pressure != null ? Number(bmeState.pressure) : null;
     const iaq = bmeState.airQuality || null;
     const energy24h = meterState.energy != null ? Number((meterState.energy / 1000).toFixed(1)) : null;
+    const power = meterState.power != null ? Number(meterState.power) : null;
+    const voltage = meterState.voltage != null ? Number(meterState.voltage) : null;
+    const current = meterState.current != null ? Number(meterState.current) : null;
+    const smokeValue = mqState.smokeValue != null ? Number(mqState.smokeValue) : null;
+    const smokeAlert = Boolean(mqState.smokeAlert || (smokeValue && smokeValue > 1800));
 
     const anyLightOn = lights.some((l) => {
       const st = typeof l.state === 'string' ? JSON.parse(l.state) : (l.state || {});
@@ -113,10 +127,19 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
       images: parseImages(r.images),
       temp,
       humidity,
+      pressure,
       iaq,
       energy24h,
+      power,
+      voltage,
+      current,
+      smokeValue,
+      smokeAlert,
       devices: {
         light: anyLightOn,
+        ac: acState.power ?? acState.on ?? true,
+        tv: tvState.power ?? tvState.on ?? false,
+        fridge: fridgeState.on ?? true,
       },
     };
   });

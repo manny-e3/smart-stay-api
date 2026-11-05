@@ -87,15 +87,20 @@ export async function assignHubToRoom({ roomNumber, deviceId, ip = null }) {
   const adapter = await getOrCreateEsp32Adapter();
   const devices = await ensureRoomDevices(room, adapter.id, ip);
 
-  if (deviceId) {
-    for (const d of devices) {
-      let caps = d.capabilities;
-      if (typeof caps === 'string') {
-        try { caps = JSON.parse(caps); } catch {}
-      }
-      const updated = JSON.stringify({ ...(caps || {}), hubDeviceId: deviceId, ...(ip ? { ip } : {}) });
-      await db('devices').where({ id: d.id }).update({ capabilities: updated });
+  for (const d of devices) {
+    let caps = d.capabilities;
+    if (typeof caps === 'string') {
+      try { caps = JSON.parse(caps); } catch {}
     }
+    caps = caps || {};
+    if (deviceId) {
+      caps.hubDeviceId = deviceId;
+      if (ip) caps.ip = ip;
+    } else {
+      delete caps.hubDeviceId;
+      delete caps.ip;
+    }
+    await db('devices').where({ id: d.id }).update({ capabilities: JSON.stringify(caps) });
   }
 
   bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber });

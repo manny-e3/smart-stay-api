@@ -34,6 +34,10 @@ export function createApp() {
 
   // Static uploads directory for room photos & media
   app.use('/uploads', express.static(uploadsDir));
+  const rootUploadsDir = path.resolve(__dirname, '../../uploads');
+  if (fs.existsSync(rootUploadsDir)) {
+    app.use('/uploads', express.static(rootUploadsDir));
+  }
 
   app.get('/', (req, res) => res.json({ success: true, message: 'SmartStay API is running' }));
   // Routes are served at the root (/staff, /admin, /integrations) and under /api for proxies that need a prefix.

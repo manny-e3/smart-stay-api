@@ -5,6 +5,7 @@ import { db } from '../config/db.js';
 import { bus, EVENTS } from '../realtime/eventBus.js';
 import { raiseAlert } from './alerts.service.js';
 import { notFound } from '../utils/errors.js';
+import { adapterFor } from '../integrations/devices/index.js';
 
 /**
  * Service to process live telemetry and emergency alerts sent by ESP32 In-Room Hubs.
@@ -17,7 +18,7 @@ async function getOrCreateEsp32Adapter(trx = db) {
     const [id] = await trx('adapters').insert({
       name: 'ESP32 Smart Room Hubs',
       vendor: 'esp32',
-      config: JSON.stringify({ timeoutMs: 3000 }),
+      config: JSON.stringify({ timeoutMgits: 3000 }),
       is_enabled: true,
       status: 'healthy',
     });
@@ -68,7 +69,7 @@ async function ensureRoomDevices(room, adapterId, deviceIp = null, trx = db) {
     } else if (deviceIp) {
       let existingCaps = dev.capabilities;
       if (typeof existingCaps === 'string') {
-        try { existingCaps = JSON.parse(existingCaps); } catch {}
+        try { existingCaps = JSON.parse(existingCaps); } catch { }
       }
       if (!existingCaps?.ip || existingCaps.ip !== deviceIp) {
         const updated = JSON.stringify({ ...(existingCaps || {}), ip: deviceIp });
@@ -90,7 +91,7 @@ export async function assignHubToRoom({ roomNumber, deviceId, ip = null }) {
   for (const d of devices) {
     let caps = d.capabilities;
     if (typeof caps === 'string') {
-      try { caps = JSON.parse(caps); } catch {}
+      try { caps = JSON.parse(caps); } catch { }
     }
     caps = caps || {};
     if (deviceId) {
@@ -293,4 +294,38 @@ export async function getRoomHardwareStatus(roomNumber) {
       lastSeenAt: d.last_seen_at,
     })),
   };
+}
+
+export async function toggleActuator({ roomNumber, deviceKey, state }) {
+  const room = await Room.findByNumber(roomNumber);
+  if (!room) throw notFound(`Room ${roomNumber}`);
+
+  const adapter = await getOrCreateEsp32Adapter();
+  const devices = await ensureRoomDevices(room, adapter.id);
+
+  const keyLower = String(deviceKey).toLowerCase();
+  const target = devices.find((d) => {
+    const ext = (d.external_id || '').toLowerCase();
+    const name = (d.name || '').toLowerCase();
+    if (keyLower === 'light' || keyLower === 'light1') return ext.includes('light') && !ext.includes('light-2') && !ext.includes('light-3') && !ext.includes('light-4');
+    if (keyLower === 'ac' || keyLower === 'light2') return ext.includes('ac') || d.type === 'thermostat';
+    if (keyLower === 'tv' || keyLower === 'light3') return ext.includes('tv');
+    if (keyLower === 'fridge' || keyLower === 'light4') return ext.includes('fridge');
+    return ext.includes(keyLower) || name.includes(keyLower);
+  });
+
+  if (target) {
+    const cmd = target.type === 'thermostat' ? { power: Boolean(state), on: Boolean(state) } : { on: Boolean(state) };
+    try {
+      const inst = adapterFor({ id: adapter.id, vendor: 'esp32', config: adapter.config });
+      await inst.sendCommand(target, cmd);
+    } catch (err) {
+      console.warn(`[esp32.service] sendCommand notice for room ${roomNumber}: ${err.message}`);
+    }
+    await Device.updateState(target.id, { online: true, state: cmd, last_seen_at: new Date() });
+    bus.publish(EVENTS.DEVICE_STATE, { deviceId: target.id, roomId: room.id, online: true, state: cmd });
+  }
+
+  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber });
+  return { ok: true, roomNumber, deviceKey, state };
 }

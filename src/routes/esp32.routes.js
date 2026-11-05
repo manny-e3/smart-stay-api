@@ -15,5 +15,8 @@ router.post('/rooms/:roomNumber/assign-hub', controller.postAssignHub);
 // Status check for a specific room's hardware
 router.get('/rooms/:roomNumber/status', controller.getStatus);
 
+// Toggle physical actuator relay (light, ac, tv, fridge)
+router.post('/rooms/:roomNumber/actuator', controller.postToggleActuator);
+
 export default router;
 

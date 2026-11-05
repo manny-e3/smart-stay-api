@@ -32,3 +32,13 @@ export async function getStatus(req, res) {
   res.json({ success: true, data });
 }
 
+/** POST /integrations/esp32/rooms/:roomNumber/actuator */
+export async function postToggleActuator(req, res) {
+  const data = await esp32Service.toggleActuator({
+    roomNumber: req.params.roomNumber,
+    deviceKey: req.body.deviceKey,
+    state: req.body.state,
+  });
+  res.json({ success: true, data });
+}
+

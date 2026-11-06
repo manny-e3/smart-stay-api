@@ -105,6 +105,8 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
       }
     }
 
+    const isHubLinked = Boolean(hubDeviceId);
+
     const anyLightOn = lights.some((l) => {
       const st = typeof l.state === 'string' ? JSON.parse(l.state) : (l.state || {});
       return Boolean(st.on);
@@ -134,22 +136,22 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
       cleaningRequested: Boolean(r.cleaning_requested),
       cleaningRequestedAt: r.cleaning_requested_at ?? null,
       images: parseImages(r.images),
-      temp,
-      humidity,
-      pressure,
-      iaq,
-      energy24h,
-      power,
-      voltage,
-      current,
-      smokeValue,
-      smokeAlert,
+      temp: isHubLinked ? temp : null,
+      humidity: isHubLinked ? humidity : null,
+      pressure: isHubLinked ? pressure : null,
+      iaq: isHubLinked ? iaq : null,
+      energy24h: isHubLinked ? energy24h : null,
+      power: isHubLinked ? power : null,
+      voltage: isHubLinked ? voltage : null,
+      current: isHubLinked ? current : null,
+      smokeValue: isHubLinked ? smokeValue : null,
+      smokeAlert: isHubLinked ? smokeAlert : false,
       hubDeviceId,
       devices: {
-        light: anyLightOn,
-        ac: acState.power ?? acState.on ?? true,
-        tv: tvState.power ?? tvState.on ?? false,
-        fridge: fridgeState.on ?? true,
+        light: isHubLinked ? anyLightOn : false,
+        ac: isHubLinked ? (acState.power ?? acState.on ?? false) : false,
+        tv: isHubLinked ? (tvState.power ?? tvState.on ?? false) : false,
+        fridge: isHubLinked ? (fridgeState.on ?? false) : false,
       },
     };
   });
@@ -218,11 +220,23 @@ export async function getRoomDetail(roomId, { includeContact = true } = {}) {
       createdAt: q.created_at, escalated: Boolean(q.escalated_at), assignee: q.assignee_id ? { id: q.assignee_id, name: q.assignee_name } : null,
     })),
     alerts: alerts.map((a) => ({ id: a.id, type: a.type, severity: a.severity, title: a.title, message: a.message, occurrenceCount: a.occurrence_count, lastSeenAt: a.last_seen_at, deviceName: a.device_name })),
-    devices: devices.map((d) => ({
-      id: d.id, type: d.type, name: d.name, externalId: d.external_id, adapter: d.adapter_name, adapterStatus: d.adapter_status,
-      online: d.online ?? null, state: d.state ?? {}, lastSeenAt: d.last_seen_at ?? null,
-      capabilities: typeof d.capabilities === 'string' ? JSON.parse(d.capabilities || '{}') : (d.capabilities || {}),
-    })),
+    devices: devices.map((d) => {
+      const caps = typeof d.capabilities === 'string' ? JSON.parse(d.capabilities || '{}') : (d.capabilities || {});
+      const isHubLinked = Boolean(summary.hubDeviceId || caps.hubDeviceId);
+      return {
+        id: d.id,
+        type: d.type,
+        name: d.name,
+        externalId: d.external_id,
+        adapter: d.adapter_name,
+        adapterStatus: isHubLinked ? d.adapter_status : 'offline',
+        online: isHubLinked ? (d.online === 1 || d.online === true) : false,
+        isActive: isHubLinked ? (d.is_active !== false) : false,
+        state: isHubLinked ? (d.state ?? {}) : {},
+        lastSeenAt: isHubLinked ? (d.last_seen_at ?? null) : null,
+        capabilities: caps,
+      };
+    }),
     recentFeedback: feedback.map((f) => ({ id: f.id, rating: f.rating, comment: f.comment, createdAt: f.created_at })),
   };
 }

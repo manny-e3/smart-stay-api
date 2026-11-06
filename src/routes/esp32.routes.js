@@ -18,5 +18,8 @@ router.get('/rooms/:roomNumber/status', controller.getStatus);
 // Toggle physical actuator relay (light, ac, tv, fridge)
 router.post('/rooms/:roomNumber/actuator', controller.postToggleActuator);
 
+// Poll pending actuator commands (Cloud-to-Hardware queue)
+router.get('/rooms/:roomNumber/commands', controller.getPendingCommands);
+
 export default router;
 

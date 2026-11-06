@@ -46,3 +46,9 @@ export async function postToggleActuator(req, res) {
   res.json({ success: data?.ok !== false, data });
 }
 
+/** GET /integrations/esp32/rooms/:roomNumber/commands (Fast poll for pending actuator toggles) */
+export async function getPendingCommands(req, res) {
+  const commands = esp32Service.popCommands(req.params.roomNumber);
+  res.json({ success: true, data: { commands } });
+}
+

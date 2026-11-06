@@ -97,15 +97,28 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
     const smokeAlert = Boolean(mqState.smokeAlert || (smokeValue && smokeValue > 1800));
 
     let hubDeviceId = null;
+    let maxLastSeenMs = 0;
     for (const d of devs) {
       const caps = typeof d.capabilities === 'string' ? JSON.parse(d.capabilities || '{}') : (d.capabilities || {});
       if (caps.hubDeviceId) {
         hubDeviceId = caps.hubDeviceId;
-        break;
+      }
+      if (d.last_seen_at) {
+        const t = new Date(d.last_seen_at).getTime();
+        if (t > maxLastSeenMs) {
+          maxLastSeenMs = t;
+        }
       }
     }
 
     const isHubLinked = Boolean(hubDeviceId);
+    // Real hardware heartbeat check (90s window; ESP32 firmware pushes every 5s)
+    const HEARTBEAT_TIMEOUT_MS = 90 * 1000;
+    const isHubOnline = Boolean(
+      isHubLinked &&
+      maxLastSeenMs > 0 &&
+      (Date.now() - maxLastSeenMs <= HEARTBEAT_TIMEOUT_MS)
+    );
 
     const anyLightOn = lights.some((l) => {
       const st = typeof l.state === 'string' ? JSON.parse(l.state) : (l.state || {});
@@ -136,22 +149,25 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
       cleaningRequested: Boolean(r.cleaning_requested),
       cleaningRequestedAt: r.cleaning_requested_at ?? null,
       images: parseImages(r.images),
-      temp: isHubLinked ? temp : null,
-      humidity: isHubLinked ? humidity : null,
-      pressure: isHubLinked ? pressure : null,
-      iaq: isHubLinked ? iaq : null,
-      energy24h: isHubLinked ? energy24h : null,
-      power: isHubLinked ? power : null,
-      voltage: isHubLinked ? voltage : null,
-      current: isHubLinked ? current : null,
-      smokeValue: isHubLinked ? smokeValue : null,
-      smokeAlert: isHubLinked ? smokeAlert : false,
+      isLinked: isHubLinked,
+      isOnline: isHubOnline,
+      hubOnline: isHubOnline,
+      temp: isHubOnline ? temp : null,
+      humidity: isHubOnline ? humidity : null,
+      pressure: isHubOnline ? pressure : null,
+      iaq: isHubOnline ? iaq : null,
+      energy24h: isHubOnline ? energy24h : null,
+      power: isHubOnline ? power : null,
+      voltage: isHubOnline ? voltage : null,
+      current: isHubOnline ? current : null,
+      smokeValue: isHubOnline ? smokeValue : null,
+      smokeAlert: isHubOnline ? smokeAlert : false,
       hubDeviceId,
       devices: {
-        light: isHubLinked ? anyLightOn : false,
-        ac: isHubLinked ? (acState.power ?? acState.on ?? false) : false,
-        tv: isHubLinked ? (tvState.power ?? tvState.on ?? false) : false,
-        fridge: isHubLinked ? (fridgeState.on ?? false) : false,
+        light: isHubOnline ? anyLightOn : false,
+        ac: isHubOnline ? (acState.power ?? acState.on ?? false) : false,
+        tv: isHubOnline ? (tvState.power ?? tvState.on ?? false) : false,
+        fridge: isHubOnline ? (fridgeState.on ?? false) : false,
       },
     };
   });
@@ -223,17 +239,19 @@ export async function getRoomDetail(roomId, { includeContact = true } = {}) {
     devices: devices.map((d) => {
       const caps = typeof d.capabilities === 'string' ? JSON.parse(d.capabilities || '{}') : (d.capabilities || {});
       const isHubLinked = Boolean(summary.hubDeviceId || caps.hubDeviceId);
+      const isHubOnline = Boolean(summary.hubOnline);
+      const isDevOnline = isHubOnline && (d.online === 1 || d.online === true);
       return {
         id: d.id,
         type: d.type,
         name: d.name,
         externalId: d.external_id,
         adapter: d.adapter_name,
-        adapterStatus: isHubLinked ? d.adapter_status : 'offline',
-        online: isHubLinked ? (d.online === 1 || d.online === true) : false,
-        isActive: isHubLinked ? (d.is_active !== false) : false,
-        state: isHubLinked ? (d.state ?? {}) : {},
-        lastSeenAt: isHubLinked ? (d.last_seen_at ?? null) : null,
+        adapterStatus: isHubOnline ? d.adapter_status : 'offline',
+        online: isDevOnline,
+        isActive: isHubOnline ? (d.is_active !== false) : false,
+        state: isHubOnline ? (d.state ?? {}) : {},
+        lastSeenAt: isHubOnline ? (d.last_seen_at ?? null) : null,
         capabilities: caps,
       };
     }),

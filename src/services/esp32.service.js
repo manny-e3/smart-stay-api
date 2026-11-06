@@ -83,12 +83,21 @@ async function ensureRoomDevices(room, adapterId, deviceIp = null, trx = db) {
 }
 
 export async function assignHubToRoom({ roomNumber, deviceId, ip = null }) {
-  const room = await Room.findByNumber(roomNumber);
+  const cleanNum = String(roomNumber).replace(/Room\s*/i, '').trim();
+  let room = await Room.findByNumber(cleanNum);
+  if (!room && !isNaN(Number(cleanNum))) {
+    room = await Room.findById(Number(cleanNum));
+  }
+  if (!room) {
+    room = await Room.findByNumber(roomNumber);
+  }
   if (!room) throw notFound(`Room ${roomNumber}`);
   const adapter = await getOrCreateEsp32Adapter();
-  const devices = await ensureRoomDevices(room, adapter.id, ip);
+  await ensureRoomDevices(room, adapter.id, ip);
 
-  for (const d of devices) {
+  // Update capabilities & online status for ALL devices assigned to this room
+  const allDevices = await db('devices').where({ room_id: room.id });
+  for (const d of allDevices) {
     let caps = d.capabilities;
     if (typeof caps === 'string') {
       try { caps = JSON.parse(caps); } catch { }
@@ -102,14 +111,31 @@ export async function assignHubToRoom({ roomNumber, deviceId, ip = null }) {
       delete caps.ip;
     }
     await db('devices').where({ id: d.id }).update({ capabilities: JSON.stringify(caps) });
+
+    if (deviceId) {
+      await db('device_states')
+        .where({ device_id: d.id })
+        .update({ online: true, last_seen_at: new Date() });
+    } else {
+      await db('device_states')
+        .where({ device_id: d.id })
+        .update({ online: false });
+    }
   }
 
-  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber });
-  return { ok: true, roomNumber, deviceId, count: devices.length };
+  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber: room.number });
+  return { ok: true, roomNumber: room.number, deviceId, count: allDevices.length };
 }
 
 export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2, battery, relays, ip }) {
-  let room = roomNumber ? await Room.findByNumber(roomNumber) : null;
+  const cleanNum = roomNumber ? String(roomNumber).replace(/Room\s*/i, '').trim() : null;
+  let room = cleanNum ? await Room.findByNumber(cleanNum) : null;
+  if (!room && cleanNum && !isNaN(Number(cleanNum))) {
+    room = await Room.findById(Number(cleanNum));
+  }
+  if (!room && roomNumber) {
+    room = await Room.findByNumber(roomNumber);
+  }
   if (!room && deviceId) {
     const dev = await db('devices')
       .whereRaw(`JSON_UNQUOTE(JSON_EXTRACT(capabilities, '$.hubDeviceId')) = ?`, [deviceId])
@@ -250,7 +276,10 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
 }
 
 export async function processEmergencyAlert({ roomNumber, type, value, message }) {
-  const room = await Room.findByNumber(roomNumber);
+  const cleanNum = String(roomNumber).replace(/Room\s*/i, '').trim();
+  let room = await Room.findByNumber(cleanNum);
+  if (!room && !isNaN(Number(cleanNum))) room = await Room.findById(Number(cleanNum));
+  if (!room) room = await Room.findByNumber(roomNumber);
   if (!room) throw notFound(`Room ${roomNumber}`);
 
   const adapter = await getOrCreateEsp32Adapter();
@@ -258,8 +287,8 @@ export async function processEmergencyAlert({ roomNumber, type, value, message }
   const isSmoke = type === 'smoke_alert' || (type && type.includes('smoke'));
   const severity = isSmoke ? 'critical' : 'warning';
   const title = isSmoke
-    ? `URGENT: Smoke / Gas Alarm in Room ${roomNumber}`
-    : `Hardware Alert in Room ${roomNumber}: ${type}`;
+    ? `URGENT: Smoke / Gas Alarm in Room ${room.number}`
+    : `Hardware Alert in Room ${room.number}: ${type}`;
 
   const res = await raiseAlert({
     type: isSmoke ? 'device_fault' : type,
@@ -272,12 +301,15 @@ export async function processEmergencyAlert({ roomNumber, type, value, message }
   });
 
   const alertId = res?.alert?.id || res?.alertId || res;
-  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber });
-  return { ok: true, alertId, roomNumber };
+  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber: room.number });
+  return { ok: true, alertId, roomNumber: room.number };
 }
 
 export async function getRoomHardwareStatus(roomNumber) {
-  const room = await Room.findByNumber(roomNumber);
+  const cleanNum = String(roomNumber).replace(/Room\s*/i, '').trim();
+  let room = await Room.findByNumber(cleanNum);
+  if (!room && !isNaN(Number(cleanNum))) room = await Room.findById(Number(cleanNum));
+  if (!room) room = await Room.findByNumber(roomNumber);
   if (!room) throw notFound(`Room ${roomNumber}`);
 
   const devices = await Device.inRoomOfTypes(room.id, ['light', 'meter', 'sensor']);
@@ -297,7 +329,10 @@ export async function getRoomHardwareStatus(roomNumber) {
 }
 
 export async function toggleActuator({ roomNumber, deviceKey, state }) {
-  const room = await Room.findByNumber(roomNumber);
+  const cleanNum = String(roomNumber).replace(/Room\s*/i, '').trim();
+  let room = await Room.findByNumber(cleanNum);
+  if (!room && !isNaN(Number(cleanNum))) room = await Room.findById(Number(cleanNum));
+  if (!room) room = await Room.findByNumber(roomNumber);
   if (!room) throw notFound(`Room ${roomNumber}`);
 
   const adapter = await getOrCreateEsp32Adapter();

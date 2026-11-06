@@ -11,6 +11,34 @@ import { adapterFor } from '../integrations/devices/index.js';
  * Service to process live telemetry and emergency alerts sent by ESP32 In-Room Hubs.
  */
 
+// In-memory command queue for reliable cloud-to-hardware actuator delivery
+const g_commandQueue = new Map(); // roomNumber -> Array<{ id, device, deviceKey, state, createdAt }>
+
+export function enqueueCommand(roomNumber, deviceKey, state) {
+  const norm = String(roomNumber).replace(/Room\s*/i, '').trim();
+  if (!g_commandQueue.has(norm)) {
+    g_commandQueue.set(norm, []);
+  }
+  const cmd = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    device: deviceKey,
+    deviceKey,
+    state: Boolean(state),
+    createdAt: new Date().toISOString(),
+  };
+  const list = g_commandQueue.get(norm);
+  list.push(cmd);
+  if (list.length > 20) list.shift();
+  return cmd;
+}
+
+export function popCommands(roomNumber) {
+  const norm = String(roomNumber).replace(/Room\s*/i, '').trim();
+  const list = g_commandQueue.get(norm) || [];
+  g_commandQueue.set(norm, []);
+  return list;
+}
+
 // Helper to ensure an ESP32 adapter exists
 async function getOrCreateEsp32Adapter(trx = db) {
   let adapter = await trx('adapters').where({ vendor: 'esp32' }).first();
@@ -265,9 +293,10 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
   }
 
   // Notify clients that room telemetry has refreshed
-  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber });
+  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber: room.number });
 
-  return { ok: true, roomNumber, processedAt: now };
+  const pendingCmds = popCommands(room.number);
+  return { ok: true, roomNumber: room.number, commands: pendingCmds, processedAt: now };
 }
 
 export async function processEmergencyAlert({ roomNumber, type, value, message }) {
@@ -330,6 +359,9 @@ export async function toggleActuator({ roomNumber, deviceKey, state }) {
   if (!room) room = await Room.findByNumber(roomNumber);
   if (!room) throw notFound(`Room ${roomNumber}`);
 
+  // Enqueue command for instant cloud delivery to ESP32
+  enqueueCommand(room.number, deviceKey, state);
+
   const adapter = await getOrCreateEsp32Adapter();
   const devices = await ensureRoomDevices(room, adapter.id);
 
@@ -346,22 +378,15 @@ export async function toggleActuator({ roomNumber, deviceKey, state }) {
 
   if (target) {
     const cmd = target.type === 'thermostat' ? { power: Boolean(state), on: Boolean(state) } : { on: Boolean(state) };
-    let sendResult = { ok: false };
     try {
       const inst = adapterFor({ id: adapter.id, vendor: 'esp32', config: adapter.config });
-      sendResult = await inst.sendCommand(target, cmd);
-      if (!sendResult?.ok) {
-        console.warn(`[esp32.service] sendCommand to ${target.external_id} failed: ${sendResult?.error}`);
-        return { ok: false, error: sendResult?.error || 'Failed to dispatch command to ESP32', roomNumber, deviceKey, state };
-      }
-    } catch (err) {
-      console.warn(`[esp32.service] sendCommand notice for room ${roomNumber}: ${err.message}`);
-      return { ok: false, error: err.message, roomNumber, deviceKey, state };
-    }
+      inst.sendCommand(target, cmd).catch(() => {});
+    } catch {}
+
     await Device.updateState(target.id, { online: true, state: cmd, last_seen_at: new Date() });
     bus.publish(EVENTS.DEVICE_STATE, { deviceId: target.id, roomId: room.id, online: true, state: cmd });
   }
 
-  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber });
-  return { ok: true, roomNumber, deviceKey, state };
+  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber: room.number });
+  return { ok: true, queued: true, roomNumber: room.number, deviceKey, state };
 }

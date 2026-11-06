@@ -152,7 +152,7 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
 
   // 1. Update BME680 Sensor / Thermostat State
   if (bme680) {
-    const bmeDev = byExternal.get(`sensor-bme680-${roomNumber}`);
+    const bmeDev = byExternal.get(`sensor-bme680-${room.number}`) || byExternal.get(`sensor-bme680-${roomNumber}`);
     if (bmeDev) {
       const state = {
         temperature: bme680.temperature,
@@ -168,7 +168,7 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
 
   // 2. Update PZEM-004T Meter State & Save Energy Reading
   if (pzem) {
-    const meterDev = byExternal.get(`meter-pzem-${roomNumber}`);
+    const meterDev = byExternal.get(`meter-pzem-${room.number}`) || byExternal.get(`meter-pzem-${roomNumber}`);
     if (meterDev) {
       const state = {
         voltage: pzem.voltage,
@@ -229,7 +229,7 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
 
   // 4. MQ-2 Safety & Smoke Alert Check
   if (mq2) {
-    const mqDev = byExternal.get(`sensor-mq2-${roomNumber}`);
+    const mqDev = byExternal.get(`sensor-mq2-${room.number}`) || byExternal.get(`sensor-mq2-${roomNumber}`);
     if (mqDev) {
       const state = { smokeValue: mq2.smokeValue, smokeAlert: Boolean(mq2.smokeAlert) };
       await Device.updateState(mqDev.id, { online: true, state, last_seen_at: now });
@@ -240,7 +240,7 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
         type: 'device_fault',
         severity: 'critical',
         source: 'device',
-        title: `Smoke / Combustible Gas Alarm in Room ${roomNumber}`,
+        title: `Smoke / Combustible Gas Alarm in Room ${room.number || roomNumber}`,
         message: `MQ-2 sensor detected critical smoke level: ${mq2.smokeValue}. Local siren activated.`,
         roomId: room.id,
         deviceId: mqDev?.id ?? null,
@@ -346,11 +346,17 @@ export async function toggleActuator({ roomNumber, deviceKey, state }) {
 
   if (target) {
     const cmd = target.type === 'thermostat' ? { power: Boolean(state), on: Boolean(state) } : { on: Boolean(state) };
+    let sendResult = { ok: false };
     try {
       const inst = adapterFor({ id: adapter.id, vendor: 'esp32', config: adapter.config });
-      await inst.sendCommand(target, cmd);
+      sendResult = await inst.sendCommand(target, cmd);
+      if (!sendResult?.ok) {
+        console.warn(`[esp32.service] sendCommand to ${target.external_id} failed: ${sendResult?.error}`);
+        return { ok: false, error: sendResult?.error || 'Failed to dispatch command to ESP32', roomNumber, deviceKey, state };
+      }
     } catch (err) {
       console.warn(`[esp32.service] sendCommand notice for room ${roomNumber}: ${err.message}`);
+      return { ok: false, error: err.message, roomNumber, deviceKey, state };
     }
     await Device.updateState(target.id, { online: true, state: cmd, last_seen_at: new Date() });
     bus.publish(EVENTS.DEVICE_STATE, { deviceId: target.id, roomId: room.id, online: true, state: cmd });

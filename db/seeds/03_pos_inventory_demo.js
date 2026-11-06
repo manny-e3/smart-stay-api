@@ -15,7 +15,7 @@ export async function seed(knex) {
       if (existing.room_id !== r.id) {
         await knex('devices').where({ id: existing.id }).update({ room_id: r.id });
       }
-      const existingState = await knex('device_states').where({ device_id: existing.id }).first('id');
+      const existingState = await knex('device_states').where({ device_id: existing.id }).first('device_id');
       if (!existingState) {
         const fill = (r.number === '103' || r.number === '204') ? 89 : (20 + (r.id * 7) % 55);
         await knex('device_states').insert({

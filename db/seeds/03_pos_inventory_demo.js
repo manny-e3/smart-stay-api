@@ -1,17 +1,44 @@
-﻿export async function seed(knex) {
+export async function seed(knex) {
   // 1. Ensure Smart Dustbin sensors exist for all rooms
   const rooms = await knex('rooms').select('id', 'number');
   const adapter = await knex('adapters').first('id');
   const adapterId = adapter ? adapter.id : 1;
 
   for (const r of rooms) {
-    const existing = await knex('devices').where({ room_id: r.id, name: 'Smart Dustbin' }).first('id');
-    if (!existing) {
+    const extId = `bin-waste-${r.number}`;
+    const existing = await knex('devices')
+      .where({ external_id: extId })
+      .orWhere({ room_id: r.id, name: 'Smart Dustbin' })
+      .first('id', 'room_id');
+
+    if (existing) {
+      if (existing.room_id !== r.id) {
+        await knex('devices').where({ id: existing.id }).update({ room_id: r.id });
+      }
+      const existingState = await knex('device_states').where({ device_id: existing.id }).first('id');
+      if (!existingState) {
+        const fill = (r.number === '103' || r.number === '204') ? 89 : (20 + (r.id * 7) % 55);
+        await knex('device_states').insert({
+          device_id: existing.id,
+          online: true,
+          state: JSON.stringify({
+            fillLevel: fill,
+            battery: 92,
+            lidOpen: false,
+            lastEmptiedAt: new Date(Date.now() - (r.id * 3600000)),
+          }),
+          last_seen_at: new Date(),
+        }).catch(() => {});
+      }
+      continue;
+    }
+
+    try {
       // Create some with high fill level to test alerts (e.g. room 103 or 204)
       const fill = (r.number === '103' || r.number === '204') ? 89 : (20 + (r.id * 7) % 55);
       const [devId] = await knex('devices').insert({
         adapter_id: adapterId,
-        external_id: `bin-waste-${r.number}`,
+        external_id: extId,
         room_id: r.id,
         type: 'sensor',
         name: 'Smart Dustbin',
@@ -27,7 +54,12 @@
           lastEmptiedAt: new Date(Date.now() - (r.id * 3600000)),
         }),
         last_seen_at: new Date(),
-      });
+      }).catch(() => {});
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY' || err.message?.includes('Duplicate entry')) {
+        continue;
+      }
+      throw err;
     }
   }
 

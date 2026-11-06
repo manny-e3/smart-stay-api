@@ -97,7 +97,7 @@ export function inRoomsOfTypes(roomIds, types) {
     .whereIn('d.room_id', roomIds)
     .where({ 'd.is_active': true, 'a.is_enabled': true })
     .whereIn('d.type', types)
-    .select('d.*', 's.state', 'a.id as a_id', 'a.name as a_name', 'a.vendor', 'a.config', 'a.updated_at as a_updated_at');
+    .select('d.*', 's.state', 's.online', 's.last_seen_at', 'a.id as a_id', 'a.name as a_name', 'a.vendor', 'a.config', 'a.updated_at as a_updated_at');
 }
 
 /** Offline devices per room. */

@@ -112,15 +112,10 @@ export async function assignHubToRoom({ roomNumber, deviceId, ip = null }) {
     }
     await db('devices').where({ id: d.id }).update({ capabilities: JSON.stringify(caps) });
 
-    if (deviceId) {
-      await db('device_states')
-        .where({ device_id: d.id })
-        .update({ online: true, last_seen_at: new Date() });
-    } else {
-      await db('device_states')
-        .where({ device_id: d.id })
-        .update({ online: false });
-    }
+    // Device states start OFFLINE until physical hardware actually transmits telemetry
+    await db('device_states')
+      .where({ device_id: d.id })
+      .update({ online: false });
   }
 
   bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber: room.number });

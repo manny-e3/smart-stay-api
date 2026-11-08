@@ -16,11 +16,13 @@ export const env = {
   // Interactive API docs at /docs. On by default except in production.
   docsEnabled: bool(process.env.DOCS_ENABLED, nodeEnv !== 'production'),
   db: {
+    url: process.env.DATABASE_URL || process.env.MYSQL_URL || null,
     host: process.env.DB_HOST || 'localhost',
     port: num(process.env.DB_PORT, 3306),
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: isTest ? process.env.DB_NAME_TEST || 'smartstay_test' : process.env.DB_NAME || 'smartstay',
+    ssl: bool(process.env.DB_SSL) ? { rejectUnauthorized: false } : undefined,
   },
   auth: {
     accessSecret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret',

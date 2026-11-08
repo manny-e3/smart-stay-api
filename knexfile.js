@@ -16,26 +16,53 @@ const parseJson = (text) => {
   }
 };
 
+const connection = env.db.url
+  ? {
+      uri: env.db.url,
+      ...(env.db.ssl ? { ssl: env.db.ssl } : {}),
+      timezone: 'Z',
+      typeCast(field, next) {
+        if (field.type === 'TINY' && field.length === 1) {
+          const v = field.string();
+          return v === null ? null : v === '1';
+        }
+        if (field.type === 'JSON' || (TEXT_TYPES.has(field.type) && JSON_COLUMNS.has(field.name))) {
+          return parseJson(field.string('utf8'));
+        }
+        if (field.type === 'NEWDECIMAL') {
+          const v = field.string();
+          return v === null ? null : Number(v);
+        }
+        return next();
+      },
+    }
+  : {
+      host: env.db.host,
+      port: env.db.port,
+      user: env.db.user,
+      password: env.db.password,
+      database: env.db.database,
+      ...(env.db.ssl ? { ssl: env.db.ssl } : {}),
+      timezone: 'Z',
+      typeCast(field, next) {
+        if (field.type === 'TINY' && field.length === 1) {
+          const v = field.string();
+          return v === null ? null : v === '1';
+        }
+        if (field.type === 'JSON' || (TEXT_TYPES.has(field.type) && JSON_COLUMNS.has(field.name))) {
+          return parseJson(field.string('utf8'));
+        }
+        if (field.type === 'NEWDECIMAL') {
+          const v = field.string();
+          return v === null ? null : Number(v);
+        }
+        return next();
+      },
+    };
+
 const config = {
   client: 'mysql2',
-  connection: {
-    ...env.db,
-    timezone: 'Z',
-    typeCast(field, next) {
-      if (field.type === 'TINY' && field.length === 1) {
-        const v = field.string();
-        return v === null ? null : v === '1';
-      }
-      if (field.type === 'JSON' || (TEXT_TYPES.has(field.type) && JSON_COLUMNS.has(field.name))) {
-        return parseJson(field.string('utf8'));
-      }
-      if (field.type === 'NEWDECIMAL') {
-        const v = field.string();
-        return v === null ? null : Number(v);
-      }
-      return next();
-    },
-  },
+  connection,
   pool: { min: 0, max: 10 },
   migrations: { directory: './db/migrations', loadExtensions: ['.js'] },
   seeds: { directory: './db/seeds', loadExtensions: ['.js'] },

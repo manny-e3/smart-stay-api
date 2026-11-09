@@ -315,7 +315,7 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
   }
 
   // Notify clients that room telemetry has refreshed
-  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber: room.number });
+  bus.publish(EVENTS.ROOM_CHANGED, { roomId: room.id }); // one-room push, no full-board reload
 
   const pendingCmds = popCommands(room.number);
   return { ok: true, roomNumber: room.number, commands: pendingCmds, processedAt: now };
@@ -347,7 +347,7 @@ export async function processEmergencyAlert({ roomNumber, type, value, message }
   });
 
   const alertId = res?.alert?.id || res?.alertId || res;
-  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber: room.number });
+  bus.publish(EVENTS.ROOM_CHANGED, { roomId: room.id }); // one-room push, no full-board reload
   return { ok: true, alertId, roomNumber: room.number };
 }
 
@@ -411,6 +411,6 @@ export async function toggleActuator({ roomNumber, deviceKey, state }) {
     bus.publish(EVENTS.DEVICE_STATE, { deviceId: target.id, roomId: room.id, online: true, state: cmd });
   }
 
-  bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber: room.number });
+  bus.publish(EVENTS.ROOM_CHANGED, { roomId: room.id }); // one-room push, no full-board reload
   return { ok: true, queued: true, roomNumber: room.number, deviceKey, state };
 }

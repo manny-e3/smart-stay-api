@@ -38,6 +38,18 @@ import { toGuestRequest } from '../services/requests.service.js';
 const BOARD_DEBOUNCE_MS = 250;
 const pending = new Map();
 
+// "Reload the whole board" is expensive for every open dashboard, so bursts of BOARD_CHANGED
+// are coalesced: at most one board:refresh per window, sent at the end of the burst.
+const BOARD_REFRESH_COALESCE_MS = 1500;
+let refreshTimer = null;
+function scheduleBoardRefresh() {
+  if (refreshTimer) return;
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null;
+    emitToPermission('board:read', 'board:refresh', {});
+  }, BOARD_REFRESH_COALESCE_MS);
+}
+
 const stayInRoom = (roomId) => Stay.findCheckedInForRoom(roomId);
 
 async function pushGuestRoomStatus(roomId) {
@@ -96,7 +108,7 @@ export function registerListeners() {
   if (registered) return;
   registered = true;
   bus.on(EVENTS.ROOM_CHANGED, ({ roomId }) => scheduleRoomUpdate(roomId));
-  bus.on(EVENTS.BOARD_CHANGED, () => emitToPermission('board:read', 'board:refresh', {}));
+  bus.on(EVENTS.BOARD_CHANGED, () => scheduleBoardRefresh());
   bus.on(EVENTS.REQUEST_CREATED, (request) => emitToPermission('requests:read', 'request:created', request));
   bus.on(EVENTS.REQUEST_UPDATED, (request) => {
     emitToPermission('requests:read', 'request:updated', request);

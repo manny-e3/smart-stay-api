@@ -16,9 +16,14 @@ const parseJson = (text) => {
   }
 };
 
+// Cloud MySQL hosts (and proxies in front of them) silently drop idle TCP connections, which later
+// surface as "read ECONNRESET" / "connection is in closed state". TCP keep-alive keeps live ones open.
+const keepAlive = { enableKeepAlive: true, keepAliveInitialDelay: 10000 };
+
 const connection = env.db.url
   ? {
       uri: env.db.url,
+      ...keepAlive,
       ...(env.db.ssl ? { ssl: env.db.ssl } : {}),
       timezone: 'Z',
       typeCast(field, next) {
@@ -42,6 +47,7 @@ const connection = env.db.url
       user: env.db.user,
       password: env.db.password,
       database: env.db.database,
+      ...keepAlive,
       ...(env.db.ssl ? { ssl: env.db.ssl } : {}),
       timezone: 'Z',
       typeCast(field, next) {
@@ -63,7 +69,9 @@ const connection = env.db.url
 const config = {
   client: 'mysql2',
   connection,
-  pool: { min: 0, max: 10 },
+  // Close pooled connections after 30s idle, before the database server times them out,
+  // so the pool never hands out a connection the server has already closed.
+  pool: { min: 0, max: 10, idleTimeoutMillis: 30000, reapIntervalMillis: 5000 },
   migrations: { directory: './db/migrations', loadExtensions: ['.js'] },
   seeds: { directory: './db/seeds', loadExtensions: ['.js'] },
 };

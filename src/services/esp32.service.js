@@ -210,8 +210,22 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
         gasResistance: bme680.gasResistance,
         airQuality: bme680.airQuality,
       };
-      await Device.updateState(bmeDev.id, { online: true, state, last_seen_at: now });
-      bus.publish(EVENTS.DEVICE_STATE, { deviceId: bmeDev.id, roomId: room.id, online: true, state });
+      // Firmware sends online:false (and null values) when the BME680 is missing or not answering.
+      // Physically impossible readings (e.g. 202 °C, 0 % RH, 1280 hPa from a faulty/fake chip or loose
+      // wiring) are treated the same way, so the dashboard shows "--" instead of nonsense.
+      const t = Number(bme680.temperature);
+      const h = Number(bme680.humidity);
+      const p = Number(bme680.pressure);
+      const plausible =
+        bme680.temperature != null && t > -20 && t < 70 &&
+        bme680.humidity != null && h > 1 && h <= 100 &&
+        bme680.pressure != null && p > 800 && p < 1100;
+      if (!plausible) {
+        for (const k of Object.keys(state)) state[k] = null;
+      }
+      const bmeOnline = bme680.online !== false && plausible;
+      await Device.updateState(bmeDev.id, { online: bmeOnline, state, last_seen_at: now });
+      bus.publish(EVENTS.DEVICE_STATE, { deviceId: bmeDev.id, roomId: room.id, online: bmeOnline, state });
     }
   }
 
@@ -228,7 +242,7 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
         pf: pzem.pf,
       };
       await Device.updateState(meterDev.id, { online: Boolean(pzem.online !== false), state, last_seen_at: now });
-      bus.publish(EVENTS.DEVICE_STATE, { deviceId: meterDev.id, roomId: room.id, online: true, state });
+      bus.publish(EVENTS.DEVICE_STATE, { deviceId: meterDev.id, roomId: room.id, online: pzem.online !== false, state });
 
       // Record hourly kWh into energy_readings table
       if (pzem.energy !== undefined && pzem.energy !== null) {

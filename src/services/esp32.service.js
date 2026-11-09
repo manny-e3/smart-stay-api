@@ -14,8 +14,29 @@ import { adapterFor } from '../integrations/devices/index.js';
 // In-memory command queue for reliable cloud-to-hardware actuator delivery
 const g_commandQueue = new Map(); // roomNumber -> Array<{ id, device, deviceKey, state, createdAt }>
 
+// When a relay was toggled from the dashboard, telemetry that was already on its way (built before
+// the hub received the command) still carries the OLD relay state and would flip the tile back.
+// Relay states reported within this window after a command are ignored for that relay.
+const COMMAND_SETTLE_MS = 10000;
+const g_recentCommands = new Map(); // `${room}:${relay}` -> timestamp ms
+
+function canonicalRelay(key) {
+  const k = String(key || '').toLowerCase().replace(/-/g, '');
+  if (k === 'light' || k === 'light1') return 'light';
+  if (k === 'ac' || k === 'light2') return 'ac';
+  if (k === 'tv' || k === 'light3') return 'tv';
+  if (k === 'fridge' || k === 'light4') return 'fridge';
+  return k;
+}
+
+function isRelaySettling(roomNumber, relay) {
+  const t = g_recentCommands.get(`${roomNumber}:${relay}`);
+  return t !== undefined && Date.now() - t < COMMAND_SETTLE_MS;
+}
+
 export function enqueueCommand(roomNumber, deviceKey, state) {
   const norm = String(roomNumber).replace(/Room\s*/i, '').trim();
+  g_recentCommands.set(`${norm}:${canonicalRelay(deviceKey)}`, Date.now());
   if (!g_commandQueue.has(norm)) {
     g_commandQueue.set(norm, []);
   }
@@ -242,6 +263,7 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
 
     for (const { keys, exts } of relayMap) {
       const val = keys.map((k) => relays[k]).find((v) => v !== undefined);
+      if (isRelaySettling(String(room.number), keys[0])) continue; // dashboard command still in flight
       if (val !== undefined) {
         for (const ext of exts) {
           const dev = byExternal.get(ext);
@@ -366,7 +388,9 @@ export async function toggleActuator({ roomNumber, deviceKey, state }) {
   const devices = await ensureRoomDevices(room, adapter.id);
 
   const keyLower = String(deviceKey).toLowerCase();
-  const target = devices.find((d) => {
+  // Prefer the exact relay device the hub reports on (e.g. `fridge-106`) over older duplicates.
+  const exact = devices.find((d) => d.external_id === `${canonicalRelay(keyLower)}-${room.number}`);
+  const target = exact || devices.find((d) => {
     const ext = (d.external_id || '').toLowerCase();
     const name = (d.name || '').toLowerCase();
     if (keyLower === 'light' || keyLower === 'light1') return ext.includes('light') && !ext.includes('light-2') && !ext.includes('light-3') && !ext.includes('light-4');

@@ -40,7 +40,8 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
     Request.openCountsByRoom(ids, OPEN_REQUEST_STATUSES),
     Alert.openCountsByRoom(ids),
     Device.offlineCountsByRoom(ids),
-    Device.inRoomsOfTypes(ids, ['sensor', 'thermostat', 'meter', 'light']),
+    // 'tv' and 'other' (fridge) are needed for the room-controller relay tiles.
+    Device.inRoomsOfTypes(ids, ['sensor', 'thermostat', 'meter', 'light', 'tv', 'other']),
   ]);
 
   const stayBy = new Map(stays.map((s) => [s.room_id, s]));
@@ -74,9 +75,14 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
                   devs.find((d) => d.type === 'meter');
     const mq = devs.find((d) => d.external_id?.includes('mq2') || (d.type === 'sensor' && d.name?.toLowerCase().includes('smoke')));
     const lights = devs.filter((d) => d.type === 'light');
-    const acDev = devs.find((d) => d.type === 'thermostat' || d.external_id?.includes('ac'));
-    const tvDev = devs.find((d) => d.type === 'tv' || d.external_id?.includes('tv'));
-    const fridgeDev = devs.find((d) => d.external_id?.includes('fridge') || d.name?.toLowerCase().includes('fridge'));
+    // Prefer the exact relay devices the ESP32 hub reports on (`light-106`, `ac-106`, ...). Older or
+    // manually added duplicates (`thermostat-ac-106`, `light-bedside-106`) would otherwise win and
+    // make the tiles show stale state.
+    const byExt = (key) => devs.find((d) => d.external_id === `${key}-${r.number}`);
+    const relayLight = byExt('light');
+    const acDev = byExt('ac') || devs.find((d) => d.type === 'thermostat' || d.external_id?.includes('ac'));
+    const tvDev = byExt('tv') || devs.find((d) => d.type === 'tv' || d.external_id?.includes('tv'));
+    const fridgeDev = byExt('fridge') || devs.find((d) => d.external_id?.includes('fridge') || d.name?.toLowerCase().includes('fridge'));
 
     const bmeState = typeof bme?.state === 'string' ? JSON.parse(bme.state) : (bme?.state || {});
     const meterState = typeof meter?.state === 'string' ? JSON.parse(meter.state) : (meter?.state || {});
@@ -120,10 +126,12 @@ export async function computeRoomSummaries({ roomIds, floor, roomType } = {}) {
       (Date.now() - maxLastSeenMs <= HEARTBEAT_TIMEOUT_MS)
     );
 
-    const anyLightOn = lights.some((l) => {
+    const lightOn = (l) => {
       const st = typeof l.state === 'string' ? JSON.parse(l.state) : (l.state || {});
       return Boolean(st.on);
-    });
+    };
+    // With an ESP32 hub the Light tile mirrors the light relay itself; otherwise "any light on".
+    const anyLightOn = relayLight ? lightOn(relayLight) : lights.some(lightOn);
     return {
       basePrice: resolvedPrice,
       price: resolvedPrice,

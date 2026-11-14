@@ -1,8 +1,25 @@
 import { BaseAdapter } from './base.adapter.js';
+import { canonicalRelay, enqueueCommand, RELAYS } from './esp32.queue.js';
+import * as Room from '../../models/room.model.js';
+
+/**
+ * On (true) or off (false) for a relay, from a SmartStay command such as
+ * { action: 'set_light', on: true }, { action: 'set_climate', power: false } or { mode: 'off' }.
+ * undefined when the command doesn't switch anything.
+ */
+function relayStateFor(command = {}) {
+  if (typeof command.on === 'boolean') return command.on;
+  if (typeof command.power === 'boolean') return command.power;
+  if (command.mode === 'off') return false;
+  if (typeof command.brightness === 'number') return command.brightness > 0;
+  return undefined;
+}
 
 /**
  * Dedicated ESP32 In-Room Hub Adapter for SmartStay.
- * Communicates with the ESP32's onboard HTTP REST server or receives push telemetry.
+ * Hubs push telemetry to /integrations/esp32/telemetry and poll for commands; sendCommand only
+ * queues (see esp32.queue.js). The HTTP calls below (states, energy, health) are used only when
+ * the API can reach the hub directly, e.g. both on the same LAN.
  *
  * Config schema in `adapters.config`:
  *   {
@@ -124,24 +141,26 @@ export class Esp32Adapter extends BaseAdapter {
     return results;
   }
 
+  /**
+   * Queues the command for the room's hub, which collects it on its next poll (about 1.5 s).
+   * The API never connects to the hub: it is behind the hotel or MiFi network and can't be
+   * reached from the server. The hub's relays only switch on and off, so commands that don't
+   * say on or off (a new setpoint, eco mode) leave the relay as it is.
+   */
   async sendCommand(device, command) {
-    try {
-      const url = this.getUrl(device, '/devices/command');
-      if (!url) {
-        return {
-          ok: false,
-          error: `ESP32 IP address not configured for device "${device.name || device.external_id}". Set device capabilities.ip or adapter baseUrl.`,
-        };
-      }
-      const payload = {
-        externalId: device.external_id,
-        command,
-      };
-      const res = await this.call(url, 'POST', payload);
-      return { ok: res?.ok !== false, state: res?.state, error: res?.error };
-    } catch (err) {
-      return { ok: false, error: err.message };
-    }
+    const roomNumber = device.room_id ? (await Room.findNumber(device.room_id))?.number : null;
+    if (!roomNumber) return { ok: false, error: `"${device.name || device.external_id}" is not assigned to a room` };
+
+    // Device ids are "<relay>-<room>", e.g. "ac-106" or "light-2-106" (old channel names).
+    const ext = String(device.external_id || '');
+    const suffix = `-${roomNumber}`;
+    const relay = canonicalRelay(ext.endsWith(suffix) ? ext.slice(0, -suffix.length) : ext);
+    if (!RELAYS.includes(relay)) return { ok: false, error: `"${device.name || ext}" is not a relay on the room hub` };
+
+    const on = relayStateFor(command);
+    if (on === undefined) return { ok: true };
+    enqueueCommand(roomNumber, relay, on);
+    return { ok: true, state: device.type === 'thermostat' ? { power: on, on } : { on } };
   }
 
   async fetchEnergyReadings(devices, since) {

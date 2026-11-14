@@ -71,7 +71,13 @@ const config = {
   connection,
   // Close pooled connections after 30s idle, before the database server times them out,
   // so the pool never hands out a connection the server has already closed.
-  pool: { min: 0, max: 10, idleTimeoutMillis: 30000, reapIntervalMillis: 5000 },
+  // DB_POOL_MAX: shared hosts (e.g. Hostinger) cap connections per MySQL user across ALL apps using it.
+  pool: {
+    min: 0,
+    max: Math.max(1, Number(process.env.DB_POOL_MAX) || 10),
+    idleTimeoutMillis: 30000,
+    reapIntervalMillis: 5000,
+  },
   migrations: { directory: './db/migrations', loadExtensions: ['.js'] },
   seeds: { directory: './db/seeds', loadExtensions: ['.js'] },
 };

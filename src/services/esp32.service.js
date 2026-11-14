@@ -5,60 +5,13 @@ import { db } from '../config/db.js';
 import { bus, EVENTS } from '../realtime/eventBus.js';
 import { raiseAlert } from './alerts.service.js';
 import { notFound } from '../utils/errors.js';
-import { adapterFor } from '../integrations/devices/index.js';
+import { canonicalRelay, enqueueCommand, isRelaySettling, popCommands } from '../integrations/devices/esp32.queue.js';
+
+export { enqueueCommand, popCommands };
 
 /**
  * Service to process live telemetry and emergency alerts sent by ESP32 In-Room Hubs.
  */
-
-// In-memory command queue for reliable cloud-to-hardware actuator delivery
-const g_commandQueue = new Map(); // roomNumber -> Array<{ id, device, deviceKey, state, createdAt }>
-
-// When a relay was toggled from the dashboard, telemetry that was already on its way (built before
-// the hub received the command) still carries the OLD relay state and would flip the tile back.
-// Relay states reported within this window after a command are ignored for that relay.
-const COMMAND_SETTLE_MS = 10000;
-const g_recentCommands = new Map(); // `${room}:${relay}` -> timestamp ms
-
-function canonicalRelay(key) {
-  const k = String(key || '').toLowerCase().replace(/-/g, '');
-  if (k === 'light' || k === 'light1') return 'light';
-  if (k === 'ac' || k === 'light2') return 'ac';
-  if (k === 'tv' || k === 'light3') return 'tv';
-  if (k === 'fridge' || k === 'light4') return 'fridge';
-  return k;
-}
-
-function isRelaySettling(roomNumber, relay) {
-  const t = g_recentCommands.get(`${roomNumber}:${relay}`);
-  return t !== undefined && Date.now() - t < COMMAND_SETTLE_MS;
-}
-
-export function enqueueCommand(roomNumber, deviceKey, state) {
-  const norm = String(roomNumber).replace(/Room\s*/i, '').trim();
-  g_recentCommands.set(`${norm}:${canonicalRelay(deviceKey)}`, Date.now());
-  if (!g_commandQueue.has(norm)) {
-    g_commandQueue.set(norm, []);
-  }
-  const cmd = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    device: deviceKey,
-    deviceKey,
-    state: Boolean(state),
-    createdAt: new Date().toISOString(),
-  };
-  const list = g_commandQueue.get(norm);
-  list.push(cmd);
-  if (list.length > 20) list.shift();
-  return cmd;
-}
-
-export function popCommands(roomNumber) {
-  const norm = String(roomNumber).replace(/Room\s*/i, '').trim();
-  const list = g_commandQueue.get(norm) || [];
-  g_commandQueue.set(norm, []);
-  return list;
-}
 
 // Helper to ensure an ESP32 adapter exists
 async function getOrCreateEsp32Adapter(trx = db) {
@@ -416,11 +369,6 @@ export async function toggleActuator({ roomNumber, deviceKey, state }) {
 
   if (target) {
     const cmd = target.type === 'thermostat' ? { power: Boolean(state), on: Boolean(state) } : { on: Boolean(state) };
-    try {
-      const inst = adapterFor({ id: adapter.id, vendor: 'esp32', config: adapter.config });
-      inst.sendCommand(target, cmd).catch(() => {});
-    } catch {}
-
     await Device.updateState(target.id, { online: true, state: cmd, last_seen_at: new Date() });
     bus.publish(EVENTS.DEVICE_STATE, { deviceId: target.id, roomId: room.id, online: true, state: cmd });
   }

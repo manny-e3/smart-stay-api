@@ -7,6 +7,24 @@ import * as Room from '../../models/room.model.js';
  * { action: 'set_light', on: true }, { action: 'set_climate', power: false } or { mode: 'off' }.
  * undefined when the command doesn't switch anything.
  */
+/**
+ * Whether the API can open a connection to a hub at this address: private LAN addresses only
+ * (10.x, 172.16-31.x, 192.168.x). A public address is the hotel or MiFi router, and loopback
+ * would hit this server's own machine.
+ */
+export function isReachableHubHost(base) {
+  let host;
+  try {
+    host = new URL(String(base).trim()).hostname;
+  } catch {
+    return false;
+  }
+  const parts = host.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n))) return false;
+  const [a, b] = parts;
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
 function relayStateFor(command = {}) {
   if (typeof command.on === 'boolean') return command.on;
   if (typeof command.power === 'boolean') return command.power;
@@ -39,7 +57,10 @@ export class Esp32Adapter extends BaseAdapter {
       try { devConfig = JSON.parse(devConfig); } catch {}
     }
 
-    const base = devConfig?.ip || caps?.ip || this.config.baseUrl;
+    // An address learned from telemetry is used only when it is on the LAN (older versions saved
+    // the router's public address, which never answers). An adapter baseUrl set by hand is trusted.
+    const learned = [devConfig?.ip, caps?.ip].find((ip) => ip && isReachableHubHost(ip));
+    const base = learned || this.config.baseUrl;
     if (!base) return null;
 
     // Disallow bare localhost/127.0.0.1 without port to prevent accidentally hitting

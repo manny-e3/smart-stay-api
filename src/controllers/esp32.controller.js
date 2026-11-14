@@ -1,13 +1,16 @@
 import * as esp32Service from '../services/esp32.service.js';
+import { isReachableHubHost } from '../integrations/devices/esp32.adapter.js';
 
-/** POST /integrations/esp32/telemetry */
+/** POST /integrations/esp32/telemetry. Answers at once; the readings are applied in the background. */
 export async function postTelemetry(req, res) {
   const remoteIp = req.body?.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress;
   const cleanIp = remoteIp?.replace(/^::ffff:/, '');
-  const ipUrl = cleanIp && cleanIp !== '127.0.0.1' && cleanIp !== '::1' && cleanIp !== 'localhost' ? `http://${cleanIp}` : undefined;
+  // Only remember the hub's address when the API can reach it (same LAN). Behind a MiFi or the
+  // hotel router the address seen here is the router's public one, which never answers.
+  const ipUrl = cleanIp && isReachableHubHost(`http://${cleanIp}`) ? `http://${cleanIp}` : undefined;
 
   console.log(`[ESP32 Telemetry] Received from ${cleanIp || 'unknown'} for Room "${req.body?.roomNumber}", Device: "${req.body?.deviceId}"`);
-  const data = await esp32Service.processTelemetry({ ...req.body, ip: req.body?.ip || ipUrl });
+  const data = await esp32Service.acceptTelemetry({ ...req.body, ip: ipUrl });
   res.json({ success: true, data });
 }
 

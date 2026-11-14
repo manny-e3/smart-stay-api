@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { resetDb, as, seedHotel, api } from './helpers.js';
 import { db } from '../src/config/db.js';
 import { Esp32Adapter } from '../src/integrations/devices/esp32.adapter.js';
+import { telemetryIdle, popCommands } from '../src/services/esp32.service.js';
 
 /**
  * ESP32 room hubs can't be reached from the server, so every command is queued and the hub
@@ -14,14 +15,18 @@ beforeEach(async () => {
   await resetDb();
   hotel = await seedHotel();
   room = hotel.rooms[0];
+  popCommands(room.number); // the queue lives in memory, so clear what earlier tests left
 });
 afterAll(() => db.destroy());
 
 const inHours = (h) => new Date(Date.now() + h * 3_600_000).toISOString();
 
-/** The hub reports in, which creates its relay and sensor devices for the room. */
-const hubTelemetry = (relays = { light: false, ac: false, tv: false, fridge: true }) =>
-  api().post('/integrations/esp32/telemetry').send({ roomNumber: room.number, deviceId: 'SMART_TEST01', relays, mq2: { smokeValue: 100, smokeAlert: false } }).expect(200);
+/** The hub reports in, which creates its relay and sensor devices for the room. Returns the reply. */
+async function hubTelemetry(relays = { light: false, ac: false, tv: false, fridge: true }, headers = {}) {
+  const res = await api().post('/integrations/esp32/telemetry').set(headers).send({ roomNumber: room.number, deviceId: 'SMART_TEST01', relays, mq2: { smokeValue: 100, smokeAlert: false } }).expect(200);
+  await telemetryIdle(); // readings are applied in the background
+  return res;
+}
 
 const hubPoll = async () => (await api().get(`/integrations/esp32/rooms/${room.number}/commands`).expect(200)).body.data.commands;
 
@@ -75,6 +80,29 @@ describe('ESP32 room hub commands', () => {
     await hubTelemetry({ light: false, ac: false, tv: false, fridge: true }); // built before the hub switched
     const state = await db('device_states').where({ device_id: light.id }).first();
     expect(state.state).toMatchObject({ on: true });
+  });
+
+  it('telemetry replies never take queued commands: only the command poll hands them over', async () => {
+    await hubTelemetry();
+    const guest = await signedInGuest();
+    const tv = await hubDevice(`tv-${room.number}`);
+    await guest(`/guest/devices/${tv.id}/command`, { power: true }).expect(200);
+
+    // A slow telemetry reply the hub has stopped waiting for must not swallow the command.
+    const reply = await hubTelemetry({ light: false, ac: false, tv: false, fridge: true });
+    expect(reply.body.data.commands).toEqual([]);
+    expect(await hubPoll()).toEqual([expect.objectContaining({ device: 'tv', state: true })]);
+  });
+
+  it('does not save or call the router public address the hub reports from', async () => {
+    await hubTelemetry(undefined, { 'X-Forwarded-For': '98.97.76.213' });
+    const light = await hubDevice(`light-${room.number}`);
+    expect(light.capabilities?.ip).toBeUndefined();
+
+    // Devices saved by older versions with the public address are not called either.
+    const adapter = new Esp32Adapter({ id: light.adapter_id, vendor: 'esp32', config: {} });
+    expect(adapter.getUrl({ capabilities: { ip: 'http://98.97.76.213' } }, '/devices/states')).toBeNull();
+    expect(adapter.getUrl({ capabilities: { ip: 'http://192.168.1.50' } }, '/devices/states')).toBe('http://192.168.1.50/devices/states');
   });
 
   it('refuses devices that are not relays on the hub', async () => {

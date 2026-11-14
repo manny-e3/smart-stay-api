@@ -46,9 +46,13 @@ async function ensureRoomDevices(room, adapterId, deviceIp = null, trx = db) {
     { external_id: `sensor-mq2-${roomNumber}`, type: 'sensor', name: 'Smoke & Gas Sensor', caps: {} },
   ];
 
+  // One query for all of them: telemetry arrives every 5 s and the database may be remote.
+  const existing = new Map(
+    (await trx('devices').where({ adapter_id: adapterId }).whereIn('external_id', desired.map((d) => d.external_id))).map((d) => [d.external_id, d]),
+  );
   const devices = [];
   for (const d of desired) {
-    let dev = await trx('devices').where({ adapter_id: adapterId, external_id: d.external_id }).first();
+    let dev = existing.get(d.external_id);
     const initialCaps = JSON.stringify({ ...d.caps, ...(deviceIp ? { ip: deviceIp } : {}) });
 
     if (!dev) {
@@ -124,7 +128,54 @@ export async function assignHubToRoom({ roomNumber, deviceId, ip = null }) {
   return { ok: true, roomNumber: room.number, deviceId, count: allDevices.length };
 }
 
-export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2, battery, relays, ip }) {
+/**
+ * Telemetry entry point. Answers as soon as the room is known and applies the readings in the
+ * background: processing takes several seconds against a remote database, and the hub gives up
+ * after 5 s and blocks its command polling meanwhile. While a room's telemetry is being applied,
+ * newer reports wait and only the latest is applied next.
+ * Commands are never handed out here, only by GET /rooms/:room/commands: a reply the hub has
+ * stopped waiting for would lose them.
+ */
+const telemetryRuns = new Map(); // roomId -> { running: Promise, next: body | null }
+
+export async function acceptTelemetry(body) {
+  const room = await resolveHubRoom(body.roomNumber, body.deviceId);
+  const run = telemetryRuns.get(room.id);
+  if (run) {
+    run.next = body;
+  } else {
+    const entry = { next: null };
+    telemetryRuns.set(room.id, entry);
+    entry.running = (async () => {
+      let current = body;
+      while (current) {
+        try {
+          await applyTelemetry(room, current);
+        } catch (err) {
+          console.error(`[esp32] telemetry for room ${room.number} failed:`, err.message);
+        }
+        current = entry.next;
+        entry.next = null;
+      }
+      telemetryRuns.delete(room.id);
+    })();
+  }
+  return { ok: true, roomNumber: room.number, commands: [], processedAt: new Date() };
+}
+
+/** Waits until all telemetry received so far has been applied (tests, graceful shutdown). */
+export async function telemetryIdle() {
+  while (telemetryRuns.size) await Promise.all([...telemetryRuns.values()].map((r) => r.running));
+}
+
+/** Applies one telemetry report right away (no queueing). */
+export async function processTelemetry(body) {
+  const room = await resolveHubRoom(body.roomNumber, body.deviceId);
+  return applyTelemetry(room, body);
+}
+
+/** The room a hub reports for: by room number, room id, or the hub id linked to the room's devices. */
+async function resolveHubRoom(roomNumber, deviceId) {
   const cleanNum = roomNumber ? String(roomNumber).replace(/Room\s*/i, '').trim() : null;
   let room = cleanNum ? await Room.findByNumber(cleanNum) : null;
   if (!room && cleanNum && !isNaN(Number(cleanNum))) {
@@ -145,7 +196,10 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
   if (!room) {
     throw notFound(`Room ${roomNumber || deviceId}`);
   }
+  return room;
+}
 
+async function applyTelemetry(room, { roomNumber, bme680, pzem, mq2, battery, relays, ip }) {
   const adapter = await getOrCreateEsp32Adapter();
   const devices = await ensureRoomDevices(room, adapter.id, ip);
   const byExternal = new Map(devices.map((d) => [d.external_id, d]));
@@ -284,8 +338,7 @@ export async function processTelemetry({ roomNumber, deviceId, bme680, pzem, mq2
   // Notify clients that room telemetry has refreshed
   bus.publish(EVENTS.ROOM_CHANGED, { roomId: room.id }); // one-room push, no full-board reload
 
-  const pendingCmds = popCommands(room.number);
-  return { ok: true, roomNumber: room.number, commands: pendingCmds, processedAt: now };
+  return { ok: true, roomNumber: room.number, commands: [], processedAt: now };
 }
 
 export async function processEmergencyAlert({ roomNumber, type, value, message }) {

@@ -37,6 +37,17 @@ export function isRelaySettling(roomNumber, relay) {
   return t !== undefined && Date.now() - t < COMMAND_SETTLE_MS;
 }
 
+const commandListeners = new Set();
+
+/**
+ * Called with (roomNumber, deviceKey, state) for every relay command, e.g. by the MQTT bridge to
+ * push it to hubs that listen on MQTT instead of polling. Returns a function that unsubscribes.
+ */
+export function onCommand(listener) {
+  commandListeners.add(listener);
+  return () => commandListeners.delete(listener);
+}
+
 /** Queues "switch this relay on/off" for the room's hub. */
 export function enqueueCommand(roomNumber, deviceKey, state) {
   const room = roomKey(roomNumber);
@@ -52,6 +63,13 @@ export function enqueueCommand(roomNumber, deviceKey, state) {
   const list = queue.get(room);
   list.push(cmd);
   if (list.length > MAX_QUEUED_PER_ROOM) list.shift();
+  for (const listener of commandListeners) {
+    try {
+      listener(room, deviceKey, Boolean(state));
+    } catch (err) {
+      console.error('[esp32.queue] command listener failed:', err.message);
+    }
+  }
   return cmd;
 }
 

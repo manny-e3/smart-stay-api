@@ -56,6 +56,14 @@ export const env = {
     subject: process.env.VAPID_SUBJECT || 'mailto:admin@smartstay.local',
   },
   firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT || '',
+  // MQTT bridge for ESP32 room hubs. The hub firmware connects to broker.hivemq.com, so that is the
+  // default. Set MQTT_URL to another broker, or to an empty value to turn the bridge off. Off in tests.
+  mqtt: {
+    url: isTest ? '' : (process.env.MQTT_URL ?? 'mqtt://broker.hivemq.com:1883'),
+    username: process.env.MQTT_USERNAME || undefined,
+    password: process.env.MQTT_PASSWORD || undefined,
+    topicPrefix: process.env.MQTT_TOPIC_PREFIX || 'smartstay/devices',
+  },
   jobs: {
     enabled: !isTest && bool(process.env.JOBS_ENABLED, true),
     devicePollSeconds: num(process.env.DEVICE_POLL_SECONDS, 5),

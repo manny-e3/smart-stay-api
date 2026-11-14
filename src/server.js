@@ -7,6 +7,7 @@ import { db, testConnection } from './config/db.js';
 import { initSockets, closeSockets } from './realtime/socket.js';
 import { registerListeners } from './realtime/listeners.js';
 import { startJobs, stopJobs } from './jobs/index.js';
+import { startMqttBridge, stopMqttBridge } from './integrations/devices/esp32.mqtt.js';
 
 const app = createApp();
 const server = http.createServer(app);
@@ -42,6 +43,7 @@ server.listen(listenTarget, async () => {
     await testConnection();
     console.log(`MySQL connected (${env.db.database})`);
     startJobs();
+    startMqttBridge();
   } catch (err) {
     console.error(`MySQL not connected: ${err.message}. Background jobs not started.`);
   }
@@ -72,6 +74,7 @@ if (!socketPath) {
 async function shutdown(signal) {
   console.log(`${signal} received, shutting down`);
   stopJobs();
+  await stopMqttBridge().catch(() => {});
   await closeSockets();
   if (companion) companion.close();
   if (socketPath) {

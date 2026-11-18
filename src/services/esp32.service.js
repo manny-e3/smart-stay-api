@@ -422,7 +422,9 @@ export async function toggleActuator({ roomNumber, deviceKey, state }) {
 
   if (target) {
     const cmd = target.type === 'thermostat' ? { power: Boolean(state), on: Boolean(state) } : { on: Boolean(state) };
-    await Device.updateState(target.id, { online: true, state: cmd, last_seen_at: new Date() });
+    // Only the requested state: online/last_seen_at come from the hub's own telemetry. Setting them
+    // here made a dashboard click look like a heartbeat and showed a dead hub as ONLINE.
+    await Device.updateState(target.id, { state: cmd });
     bus.publish(EVENTS.DEVICE_STATE, { deviceId: target.id, roomId: room.id, online: true, state: cmd });
   }
 

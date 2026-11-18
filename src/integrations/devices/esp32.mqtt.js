@@ -1,7 +1,7 @@
 import mqtt from 'mqtt';
 import { env } from '../../config/env.js';
 import { db } from '../../config/db.js';
-import { acceptTelemetry } from '../../services/esp32.service.js';
+import { acceptTelemetry, normalizeHubId } from '../../services/esp32.service.js';
 import { canonicalRelay, onCommand, RELAYS } from './esp32.queue.js';
 
 /**
@@ -75,7 +75,9 @@ export async function findHubForRoom(roomNumber) {
     .where('r.number', String(roomNumber))
     .whereRaw(`JSON_EXTRACT(d.capabilities, '$.hubDeviceId') IS NOT NULL`)
     .first(db.raw(`JSON_UNQUOTE(JSON_EXTRACT(d.capabilities, '$.hubDeviceId')) as hub`));
-  return row?.hub || null;
+  // Links saved before IDs were normalized may hold the network name ("smartstay-<hex>");
+  // the hub listens on its device code ("SMART_<HEX>").
+  return row?.hub ? normalizeHubId(row.hub) : null;
 }
 
 /** Handles one incoming MQTT message. Exported for tests. */

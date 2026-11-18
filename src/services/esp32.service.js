@@ -88,7 +88,33 @@ async function ensureRoomDevices(room, adapterId, deviceIp = null, trx = db) {
   return devices;
 }
 
-export async function assignHubToRoom({ roomNumber, deviceId, ip = null }) {
+/**
+ * The hub's real device code, SMART_<12 hex>, from what staff typed. Staff copy it from different
+ * places: the setup page shows "SMART_7CB1C7F9D108", the setup hotspot is
+ * "SmartStay_SMART_7CB1C7F9D108", and the router's device list shows the network name
+ * "smartstay-7CB1C7F9D108". A hub linked under the network name never got its commands.
+ * Anything else (e.g. "SMART_101" for HTTP-firmware hubs) is kept as typed, trimmed.
+ */
+export function normalizeHubId(input) {
+  if (input === null || input === undefined) return input;
+  const raw = String(input).trim();
+  const core = raw
+    .replace(/\.local$/i, '')
+    .replace(/^smartstay[-_\s]*/i, '')
+    .replace(/^smart[-_\s]*/i, '');
+  if (/^[0-9a-f]{12}$/i.test(core)) return `SMART_${core.toUpperCase()}`;
+  return raw;
+}
+
+/** Every spelling a hub may be stored under, for matching links made before normalizeHubId. */
+export function hubIdAliases(deviceId) {
+  const id = normalizeHubId(deviceId);
+  const m = /^SMART_([0-9A-F]{12})$/.exec(id || '');
+  return m ? [id, `smartstay-${m[1]}`, `smartstay-${m[1].toLowerCase()}`] : [id];
+}
+
+export async function assignHubToRoom({ roomNumber, deviceId: rawDeviceId, ip = null }) {
+  const deviceId = rawDeviceId ? normalizeHubId(rawDeviceId) : rawDeviceId;
   const cleanNum = String(roomNumber).replace(/Room\s*/i, '').trim();
   let room = await Room.findByNumber(cleanNum);
   if (!room && !isNaN(Number(cleanNum))) {
@@ -100,6 +126,31 @@ export async function assignHubToRoom({ roomNumber, deviceId, ip = null }) {
   if (!room) throw notFound(`Room ${roomNumber}`);
   const adapter = await getOrCreateEsp32Adapter();
   await ensureRoomDevices(room, adapter.id, ip);
+
+  // A hub is in one room only: unlink it from any other room first. Otherwise its telemetry
+  // and commands would go to whichever room the database happens to return first.
+  let unlinkedFrom = [];
+  if (deviceId) {
+    const aliases = hubIdAliases(deviceId);
+    const elsewhere = await db('devices')
+      .whereNot('room_id', room.id)
+      .whereRaw(
+        `JSON_UNQUOTE(JSON_EXTRACT(capabilities, '$.hubDeviceId')) IN (${aliases.map(() => '?').join(',')})`,
+        aliases,
+      )
+      .select('id', 'room_id', 'capabilities');
+    for (const d of elsewhere) {
+      let caps = d.capabilities;
+      if (typeof caps === 'string') {
+        try { caps = JSON.parse(caps); } catch { caps = {}; }
+      }
+      caps = caps || {};
+      delete caps.hubDeviceId;
+      delete caps.ip;
+      await db('devices').where({ id: d.id }).update({ capabilities: JSON.stringify(caps) });
+    }
+    unlinkedFrom = [...new Set(elsewhere.map((d) => d.room_id))];
+  }
 
   // Update capabilities & online status for ALL devices assigned to this room
   const allDevices = await db('devices').where({ room_id: room.id });
@@ -125,7 +176,7 @@ export async function assignHubToRoom({ roomNumber, deviceId, ip = null }) {
   }
 
   bus.publish(EVENTS.BOARD_CHANGED, { roomId: room.id, roomNumber: room.number });
-  return { ok: true, roomNumber: room.number, deviceId, count: allDevices.length };
+  return { ok: true, roomNumber: room.number, deviceId, count: allDevices.length, unlinkedFromRoomIds: unlinkedFrom };
 }
 
 /**
@@ -185,8 +236,12 @@ async function resolveHubRoom(roomNumber, deviceId) {
     room = await Room.findByNumber(roomNumber);
   }
   if (!room && deviceId) {
+    const aliases = hubIdAliases(deviceId); // also finds rooms linked as "smartstay-<hex>"
     const dev = await db('devices')
-      .whereRaw(`JSON_UNQUOTE(JSON_EXTRACT(capabilities, '$.hubDeviceId')) = ?`, [deviceId])
+      .whereRaw(
+        `JSON_UNQUOTE(JSON_EXTRACT(capabilities, '$.hubDeviceId')) IN (${aliases.map(() => '?').join(',')})`,
+        aliases,
+      )
       .orWhere('external_id', 'like', `%${deviceId}%`)
       .first('room_id');
     if (dev?.room_id) {

@@ -9,7 +9,10 @@ import { AppError, badRequest } from '../utils/errors.js';
  * or OpenAI Whisper (if OPENAI_API_KEY is set).
  */
 export async function transcribeAudio(buffer, mimeType = 'audio/mp4') {
-  const cleanMime = (mimeType || 'audio/mp4').split(';')[0].trim();
+  let cleanMime = (mimeType || 'audio/mp4').split(';')[0].trim().toLowerCase();
+  if (!cleanMime.startsWith('audio/') || cleanMime === 'audio/m4a' || cleanMime === 'audio/x-m4a') {
+    cleanMime = 'audio/mp4';
+  }
 
   if (env.voice.geminiApiKey) {
     const model = env.voice.geminiModel || 'gemini-3.8-flash';

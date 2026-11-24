@@ -13,7 +13,7 @@ import { getSettings } from './settings.service.js';
  * AC range before they reach the vendor adapter.
  */
 
-export const GUEST_DEVICE_TYPES = ['light', 'thermostat', 'curtain', 'tv', 'speaker'];
+export const GUEST_DEVICE_TYPES = ['light', 'thermostat', 'curtain', 'tv', 'speaker', 'other'];
 
 const DEFAULT_CAPABILITIES = {
   light: { dimmable: false },
@@ -21,6 +21,7 @@ const DEFAULT_CAPABILITIES = {
   curtain: { positionable: true },
   tv: { volumeMax: 100, inputs: ['tv', 'hdmi1', 'hdmi2'], channels: true },
   speaker: { volumeMax: 100, sources: ['bluetooth', 'radio'] },
+  other: { modes: ['standard', 'boost', 'wine'] },
 };
 
 // State fields the guest app may see, per type. Internal fields (e.g. guestOverrideAt) are hidden.
@@ -30,6 +31,7 @@ const VISIBLE_STATE = {
   curtain: ['position', 'moving'],
   tv: ['power', 'volume', 'mute', 'channel', 'input'],
   speaker: ['power', 'volume', 'playing', 'source'],
+  other: ['power', 'on', 'setpoint', 'mode'],
 };
 
 export function capabilitiesFor(device, settings) {
@@ -128,6 +130,18 @@ function commandSchema(device, caps) {
           })
           .strict(),
       );
+    case 'other':
+      return atLeastOne(
+        z
+          .object({
+            power: z.boolean().optional(),
+            on: z.boolean().optional(),
+            setpoint: z.number().min(-20).max(60).optional(),
+            unit: z.enum(['C', 'F']).optional(),
+            mode: z.enum(caps.modes || ['standard', 'boost', 'wine']).optional(),
+          })
+          .strict(),
+      );
     default:
       throw badRequest('This device cannot be controlled from the app');
   }
@@ -157,6 +171,11 @@ function toAdapterCommand(device, input) {
       return { command: { action: 'set_tv', ...input }, state: { ...input } };
     case 'speaker':
       return { command: { action: 'set_speaker', ...input }, state: { ...input } };
+    case 'other': {
+      const powerVal = input.on ?? input.power;
+      const next = { ...input, ...(powerVal !== undefined ? { on: powerVal, power: powerVal } : {}) };
+      return { command: { action: 'set_fridge', ...next }, state: next };
+    }
     default:
       throw badRequest('This device cannot be controlled from the app');
   }

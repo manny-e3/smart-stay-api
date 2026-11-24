@@ -47,9 +47,9 @@ export function withAdapterAndState() {
     .select('d.*', 's.state', 's.online', 's.last_seen_at', 'a.id as a_id', 'a.name as a_name', 'a.vendor as a_vendor', 'a.config', 'a.updated_at as a_updated_at');
 }
 
-/** Guest-controllable devices in a room (lights first, then AC, curtains, TV, speaker), with adapter and state. */
+/** Guest-controllable devices in a room (lights first, then AC, curtains, TV, speaker, fridge), with adapter and state. */
 export function listGuestDevicesInRoom(roomId, types) {
-  return withAdapterAndState().where('d.room_id', roomId).whereIn('d.type', types).orderByRaw("FIELD(d.type, 'light', 'thermostat', 'curtain', 'tv', 'speaker')").orderBy('d.name');
+  return withAdapterAndState().where('d.room_id', roomId).whereIn('d.type', types).orderByRaw("FIELD(d.type, 'light', 'thermostat', 'curtain', 'tv', 'speaker', 'other')").orderBy('d.name');
 }
 
 /** Devices of the given types in one room, with adapter and state. */

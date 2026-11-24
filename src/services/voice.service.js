@@ -12,7 +12,7 @@ export async function transcribeAudio(buffer, mimeType = 'audio/mp4') {
   const cleanMime = (mimeType || 'audio/mp4').split(';')[0].trim();
 
   if (env.voice.geminiApiKey) {
-    const model = env.voice.geminiModel || 'gemini-2.5-flash';
+    const model = env.voice.geminiModel || 'gemini-3.8-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(env.voice.geminiApiKey)}`;
     const res = await fetch(url, {
       method: 'POST',

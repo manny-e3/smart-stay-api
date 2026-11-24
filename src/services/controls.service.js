@@ -45,6 +45,7 @@ export function toGuestDevice(device, settings) {
   const visible = Object.fromEntries(VISIBLE_STATE[device.type].filter((k) => state[k] !== undefined).map((k) => [k, state[k]]));
   return {
     id: device.id,
+    externalId: device.external_id,
     type: device.type,
     name: device.name || device.type,
     online: device.online ?? true,

@@ -30,6 +30,7 @@ const audioUploadMulter = multer({ storage: multer.memoryStorage(), limits: { fi
  * Reads a single audio clip from multipart/form-data "audio" field into req.file.
  */
 export function audioUpload(req, res, next) {
+  if (!req.is('multipart/form-data')) return next();
   audioUploadMulter.single('audio')(req, res, (err) => {
     if (!err) return next();
     if (err instanceof multer.MulterError) {

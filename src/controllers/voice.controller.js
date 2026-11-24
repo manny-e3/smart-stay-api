@@ -11,8 +11,14 @@ export async function command(req, res) {
 
 /** POST /guest/assistant/audio (transcribe audio clip and execute voice command) */
 export async function audioCommand(req, res) {
-  if (!req.file?.buffer?.length) throw badRequest('Audio file is required');
-  const transcript = await voiceService.transcribeAudio(req.file.buffer, req.file.mimetype);
+  let buffer = req.file?.buffer;
+  let mimeType = req.file?.mimetype;
+  if (!buffer?.length && req.body?.audioBase64) {
+    buffer = Buffer.from(String(req.body.audioBase64), 'base64');
+    mimeType = req.body.mimeType || 'audio/mp4';
+  }
+  if (!buffer?.length) throw badRequest('Audio file is required');
+  const transcript = await voiceService.transcribeAudio(buffer, mimeType);
   const { noRoom, ...result } = await voiceService.handleVoiceCommand(req.guest, transcript);
   if (noRoom) return res.json({ success: true, transcript, ...result });
   res.json({ success: true, data: { ...result, transcript } });

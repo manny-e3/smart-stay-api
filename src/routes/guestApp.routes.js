@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { authenticateGuest } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { limiter, guestCommandLimiter } from '../middleware/rateLimit.js';

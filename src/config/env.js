@@ -56,6 +56,11 @@ export const env = {
     subject: process.env.VAPID_SUBJECT || 'mailto:admin@smartstay.local',
   },
   firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT || '',
+  voice: {
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
+    openaiApiKey: process.env.OPENAI_API_KEY || '',
+    geminiModel: process.env.GEMINI_VOICE_MODEL || 'gemini-2.5-flash',
+  },
   // MQTT bridge for ESP32 room hubs. The hub firmware connects to broker.hivemq.com, so that is the
   // default. Set MQTT_URL to another broker, or to an empty value to turn the bridge off. Off in tests.
   mqtt: {

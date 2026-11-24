@@ -23,3 +23,22 @@ export function photoUpload(req, res, next) {
     next(err);
   });
 }
+
+const audioUploadMulter = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
+
+/**
+ * Reads a single audio clip from multipart/form-data "audio" field into req.file.
+ */
+export function audioUpload(req, res, next) {
+  audioUploadMulter.single('audio')(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      const msg = {
+        LIMIT_FILE_SIZE: 'Audio clip must be 10 MB or smaller',
+        LIMIT_UNEXPECTED_FILE: 'Send audio in the "audio" field',
+      }[err.code];
+      return next(badRequest(msg || err.message));
+    }
+    next(err);
+  });
+}

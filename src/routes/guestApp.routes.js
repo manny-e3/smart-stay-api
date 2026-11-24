@@ -2,7 +2,7 @@
 import { authenticateGuest } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { limiter, guestCommandLimiter } from '../middleware/rateLimit.js';
-import { photoUpload } from '../middleware/upload.js';
+import { photoUpload, audioUpload } from '../middleware/upload.js';
 import { idParam } from '../validators/common.validator.js';
 import * as v from '../validators/guestApp.validator.js';
 import * as account from '../controllers/guestAccount.controller.js';
@@ -65,6 +65,7 @@ router.put('/preferences', validate({ body: v.preferencesBody }), app.updatePref
 // Voice assistant ("/voice-command" is an older name for the same endpoint)
 const voiceLimit = limiter({ limit: 60, minutes: 1, byGuest: true });
 router.post('/assistant/command', voiceLimit, validate({ body: v.voiceCommandBody }), voice.command);
+router.post('/assistant/audio', voiceLimit, audioUpload, voice.audioCommand);
 router.post('/voice-command', voiceLimit, validate({ body: v.voiceCommandBody }), voice.command);
 
 export default router;
